@@ -10,7 +10,6 @@
         body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        /* 模態視窗特效 */
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
     </style>
@@ -52,7 +51,6 @@
                 </div>
             </div>
 
-            <!-- 修改：按鈕不再跳轉，而是開啟模態視窗 -->
             <button onclick="openModal()" class="w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse">
                 👀 查看隱藏/急售房源
             </button>
@@ -62,7 +60,7 @@
 
         <!-- 手動選單區 -->
         <div id="manual-area" class="hidden mt-4 text-left">
-            <p class="text-sm text-gray-500 mb-2">無法定位，請手動選擇：</p>
+            <p class="text-sm text-gray-500 mb-2">無法定位或距離太遠，請手動選擇：</p>
             <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4" onchange="manualSelect(this.value)">
                 <option value="">-- 請選擇社區 --</option>
             </select>
@@ -72,16 +70,13 @@
         <div id="loading" class="hidden"><div class="loader"></div><p class="text-sm text-gray-500">資料比對中...</p></div>
     </div>
 
-    <!-- 隱藏的 iframe -->
+    <!-- 隱藏 iframe -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {showSuccess();}"></iframe>
 
-    <!-- 模態視窗 (Modal) -->
+    <!-- 模態視窗 -->
     <div id="form-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
         <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeModal()"></div>
-        
         <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
-            
-            <!-- 表單內容 -->
             <div class="modal-content py-4 text-left px-6" id="form-content">
                 <div class="flex justify-between items-center pb-3">
                     <p class="text-2xl font-bold">索取隱藏名單</p>
@@ -89,39 +84,28 @@
                         <svg class="fill-current text-black" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
                     </div>
                 </div>
-
                 <p class="text-sm text-gray-600 mb-4">請留下聯絡方式，系統將傳送 <span id="modal-community-name" class="font-bold text-blue-600"></span> 的詳細資料給您。</p>
-
-                <!-- 表單區 -->
+                
                 <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
-                    
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">您的稱呼 (必填)</label>
                         <input type="text" id="input-name" name="" required placeholder="王先生/林小姐" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                     </div>
-
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">手機號碼 (必填)</label>
                         <input type="tel" id="input-phone" name="" required placeholder="09xx-xxx-xxx" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                     </div>
-
-                    <!-- 新增 LINE ID 欄位 -->
                     <div class="mb-4">
                         <label class="block text-gray-700 text-sm font-bold mb-2">LINE ID (選填)</label>
                         <input type="text" id="input-line" name="" placeholder="方便加Line聯繫" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
                     </div>
-
-                    <!-- 隱藏欄位：用來自動填入社區名稱 -->
                     <input type="hidden" id="input-community" name="" value="">
-
                     <div class="flex justify-end pt-2">
                         <button type="button" onclick="closeModal()" class="px-4 bg-transparent p-3 rounded-lg text-indigo-500 hover:bg-gray-100 hover:text-indigo-400 mr-2">取消</button>
                         <button type="submit" class="px-4 bg-indigo-500 p-3 rounded-lg text-white hover:bg-indigo-400">送出索取</button>
                     </div>
                 </form>
             </div>
-
-            <!-- 送出成功後的畫面 -->
             <div id="success-msg" class="hidden py-10 px-6 text-center">
                 <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
                     <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
@@ -130,24 +114,21 @@
                 <p class="mt-2 text-sm text-gray-500">我已收到您的需求，會盡快將資料整理給您。</p>
                 <button onclick="closeModal()" class="mt-6 w-full bg-gray-600 text-white py-2 rounded">關閉</button>
             </div>
-
         </div>
     </div>
 
     <script>
         // ==============================================
-        // 🔴 設定區域 (請重新填入)
+        // 🔴 設定區域 (你的資料)
         // ==============================================
         
         const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv'; 
-
-        // Google Form 設定
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
         
-        const entryId_Name  = 'entry.1415901609'; // 姓名欄位的 ID
-        const entryId_Phone = 'entry.1276512542'; // 電話欄位的 ID
-        const entryId_Line  = 'entry.1641674903'; // 🔴 [新] LINE ID 欄位的 ID (記得去查出來填這)
-        const entryId_Comm  = 'entry.1383846499'; // 社區名稱欄位的 ID
+        const entryId_Name  = 'entry.1415901609';
+        const entryId_Phone = 'entry.1276512542';
+        const entryId_Line  = 'entry.1641674903';
+        const entryId_Comm  = 'entry.1383846499';
 
         // ==============================================
         
@@ -155,26 +136,24 @@
         let currentCommunityName = "";
         var submitted = false;
 
-        // 初始化設定表單 ID
         document.getElementById('google-form').action = formActionURL;
         document.getElementById('input-name').name = entryId_Name;
         document.getElementById('input-phone').name = entryId_Phone;
-        
-        // 綁定新的 LINE ID 欄位
-        if(entryId_Line) document.getElementById('input-line').name = entryId_Line;
+        document.getElementById('input-line').name = entryId_Line;
+        document.getElementById('input-community').name = entryId_Comm;
 
-        if(entryId_Comm) document.getElementById('input-community').name = entryId_Comm;
-
-        // ... (以下 GPS 邏輯不變) ...
         window.onload = function() {
-            if(googleSheetUrl.includes('https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse')) {
-                 allCommunities = [{社區名稱: "測試-台北101", 成交均價: "200萬", 近期最高: "250萬", 緯度: 25.0339, 經度: 121.5644, 偵測半徑: 5000}];
-                renderManualList();
-                return;
-            }
+            // 直接讀取，移除多餘判斷
             Papa.parse(googleSheetUrl, {
                 download: true, header: true,
-                complete: function(results) { allCommunities = results.data; renderManualList(); }
+                complete: function(results) { 
+                    allCommunities = results.data; 
+                    console.log("資料已載入:", allCommunities); // 開發者工具看得到
+                    renderManualList(); 
+                },
+                error: function(err) {
+                    alert("讀取 Google Sheet 失敗，請檢查網址或權限");
+                }
             });
         };
 
@@ -188,18 +167,38 @@
         function successGPS(position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
-            let found = null; let minDist = Infinity;
+            let found = null; 
+            let minDist = Infinity;
+            
+            // 除錯變數
+            let debugMsg = "GPS 定位成功！\n您的位置: " + userLat.toFixed(4) + ", " + userLng.toFixed(4) + "\n\n";
+            let hasData = false;
 
             allCommunities.forEach(item => {
-                if(!item['緯度']) return;
+                // 防呆：如果 Sheet 裡有一行是空的，直接跳過
+                if(!item['緯度'] || !item['社區名稱']) return;
+                
+                hasData = true;
                 const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
                 const radius = parseFloat(item['偵測半徑']) || 100;
+                
+                debugMsg += item['社區名稱'] + " 距離: " + Math.round(dist) + "公尺 (半徑:" + radius + ")\n";
+
                 if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
 
             document.getElementById('loading').classList.add('hidden');
-            if (found) showResult(found);
-            else { alert("附近無資料，請手動選擇"); showManualList(); }
+            
+            if (found) {
+                showResult(found);
+            } else {
+                // 如果沒有找到，顯示除錯訊息讓你知道為什麼 (只有自己看得到，客戶不會按兩次)
+                // ⚠️ 如果不想看到這個彈窗，把下面這行 alert 刪掉即可
+                if(!hasData) alert("錯誤：沒讀到任何資料！請檢查 Google Sheet 標題是否為「緯度」、「社區名稱」。");
+                else alert("附近無符合資料。\n\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點來測試。");
+                
+                showManualList(); 
+            }
         }
 
         function errorGPS() {
@@ -230,6 +229,9 @@
 
         function renderManualList() {
             const select = document.getElementById('manual-select');
+            // 清空舊選項以免重複
+            select.innerHTML = '<option value="">-- 請選擇社區 --</option>';
+            
             allCommunities.forEach((item, index) => {
                 if(!item['社區名稱']) return;
                 const option = document.createElement('option');
