@@ -277,10 +277,25 @@
             showManualList();
         }
 
-        function showResult(data) {
+function showResult(data) {
             document.getElementById('status-area').classList.add('hidden');
             document.getElementById('manual-area').classList.add('hidden');
             document.getElementById('result-area').classList.remove('hidden');
+
+            // --- 偵探模式開始 ---
+            console.log("正在讀取的資料:", data);
+            let rawLink = data['圖片連結']; 
+            
+            // 如果讀不到，跳出警告
+            if (rawLink === undefined) {
+                alert("❌ 錯誤：找不到「圖片連結」欄位！\n請檢查 Google Sheet 第一列標題，是否剛好是「圖片連結」這四個字？(不能有空格)");
+            } else if (rawLink === "") {
+                alert("⚠️ 警告：欄位抓到了，但內容是空的。\n可能是 Google 還沒更新 (請等 5 分鐘)，或是你忘了填。");
+            } else {
+                // 有抓到資料，顯示出來看看
+                console.log("原始連結:", rawLink);
+            }
+            // --- 偵探模式結束 ---
 
             document.getElementById('res-name').innerText = data['社區名稱'];
             document.getElementById('res-price').innerText = data['成交均價'];
@@ -288,13 +303,21 @@
             document.getElementById('input-community').value = data['社區名稱'];
             document.getElementById('modal-community-name').innerText = data['社區名稱'];
 
-            // 圖片處理
-            let imgUrl = data['圖片連結'];
+            // 圖片處理邏輯
+            let imgUrl = rawLink;
             if(imgUrl && imgUrl.includes('drive.google.com')) {
-                const idMatch = imgUrl.match(/[-\w]{25,}/);
-                if(idMatch) imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[0];
+                // 嘗試提取 ID (這段正則表達式是用來抓那串亂碼的)
+                const idMatch = imgUrl.match(/\/d\/([-\w]{25,})/);
+                if(idMatch) {
+                    imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[1];
+                }
             }
-            if(imgUrl) document.getElementById('res-img').src = imgUrl;
+            
+            // 強制設定圖片，並印出轉換後的網址
+            if(imgUrl) {
+                console.log("轉換後的圖片網址:", imgUrl);
+                document.getElementById('res-img').src = imgUrl;
+            }
         }
 
         function calculateMortgage() {
