@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>社區行情即時查</title>
+    <!-- 引入 Tailwind CSS (美化介面用) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 PapaParse (讀取 CSV 用) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <style>
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
+        .card { transition: all 0.3s; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen px-4">
+
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden p-6 text-center">
+        <h1 class="text-2xl font-bold text-gray-800 mb-2">🏠 房產行情即時通</h1>
+        <p class="text-gray-500 text-sm mb-6">掃描即顯示您所在大樓的真實成交價</p>
+
+        <!-- 狀態顯示區 -->
+        <div id="status-area">
+            <div class="space-y-4">
+                <button onclick="startGPS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg shadow text-lg flex items-center justify-center gap-2">
+                    📍 顯示此地行情
+                </button>
+                <button onclick="showManualList()" class="w-full bg-white border-2 border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+                    📋 手動選擇社區
+                </button>
+            </div>
+        </div>
+
+        <!-- 結果顯示區 (預設隱藏) -->
+        <div id="result-area" class="hidden text-left mt-4">
+            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+                <p class="text-sm text-blue-600 font-bold">您目前位於：</p>
+                <h2 id="res-name" class="text-3xl font-bold text-gray-900">社區名稱</h2>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-4 mb-6">
+                <div class="bg-gray-100 p-3 rounded text-center">
+                    <p class="text-xs text-gray-500">近半年均價</p>
+                    <p id="res-price" class="text-xl font-bold text-red-600">-</p>
+                </div>
+                <div class="bg-gray-100 p-3 rounded text-center">
+                    <p class="text-xs text-gray-500">近期最高</p>
+                    <p id="res-max" class="text-xl font-bold text-gray-800">-</p>
+                </div>
+            </div>
+
+            <a id="res-link" href="#" target="_blank" class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse">
+                👀 查看隱藏/急售房源
+            </a>
+            
+            <button onclick="location.reload()" class="mt-4 w-full text-gray-400 text-sm underline">重新查詢</button>
+        </div>
+
+        <!-- 錯誤/手動選單區 (預設隱藏) -->
+        <div id="manual-area" class="hidden mt-4 text-left">
+            <p class="text-sm text-gray-500 mb-2">無法定位或附近無資料，請手動選擇：</p>
+            <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4" onchange="manualSelect(this.value)">
+                <option value="">-- 請選擇社區 --</option>
+            </select>
+            <button onclick="location.reload()" class="w-full text-gray-400 text-sm underline">返回</button>
+        </div>
+
+        <div id="loading" class="hidden"><div class="loader"></div><p class="text-sm text-gray-500">資料比對中...</p></div>
+    </div>
+
+    <script>
+        // ==============================================
+        // 🔴 請在這裡貼上你的 Google Sheet CSV 連結
+        // ==============================================
+        const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv'; 
+        // 例如: https://docs.google.com/spreadsheets/d/e/...../pub?output=csv
+        
+        let allCommunities = [];
+
+        // 初始化：預先抓取 Google Sheet 資料
+        window.onload = function() {
+            if(googleSheetUrl === '這裡貼上你的神奇連結' || googleSheetUrl === '') {
+                alert('提醒：請記得編輯 index.html，將 googleSheetUrl 換成你的 CSV 連結喔！(目前將使用測試模式)');
+                // 測試資料，讓你沒貼連結也能先體驗
+                allCommunities = [
+                    {社區名稱: "測試-台北101", 成交均價: "200萬", 近期最高: "250萬", 緯度: 25.0339, 經度: 121.5644, 偵測半徑: 5000, 預約連結: "#"},
+                    {社區名稱: "測試-帝寶", 成交均價: "250萬", 近期最高: "280萬", 緯度: 25.0387, 經度: 121.5376, 偵測半徑: 5000, 預約連結: "#"}
+                ];
+                renderManualList();
+                return;
+            }
+
+            Papa.parse(googleSheetUrl, {
+                download: true,
+                header: true,
+                complete: function(results) {
+                    allCommunities = results.data;
+                    console.log("資料庫載入成功", allCommunities);
+                    renderManualList();
+                },
+                error: function(err) {
+                    alert("資料載入失敗，請檢查 Google Sheet 連結設定");
+                }
+            });
+        };
+
+        function startGPS() {
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('loading').classList.remove('hidden');
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
+            } else {
+                alert("您的瀏覽器不支援定位");
+                showManualList();
+            }
+        }
+
+        function successGPS(position) {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            
+            // 尋找最近且在半徑內的社區
+            let found = null;
+            let minDist = Infinity;
+
+            allCommunities.forEach(item => {
+                if(!item['緯度']) return;
+                const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000; // 轉公尺
+                const radius = parseFloat(item['偵測半徑']) || 100; // 預設100公尺
+
+                if (dist < radius && dist < minDist) {
+                    minDist = dist;
+                    found = item;
+                }
+            });
+
+            document.getElementById('loading').classList.add('hidden');
+            
+            if (found) {
+                showResult(found);
+            } else {
+                alert("附近沒有符合的社區資料，請手動選擇");
+                showManualList();
+            }
+        }
+
+        function errorGPS() {
+            document.getElementById('loading').classList.add('hidden');
+            alert("無法取得位置 (請確保已允許定位權限)");
+            showManualList();
+        }
+
+        function showResult(data) {
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.add('hidden');
+            document.getElementById('result-area').classList.remove('hidden');
+
+            document.getElementById('res-name').innerText = data['社區名稱'];
+            document.getElementById('res-price').innerText = data['成交均價'];
+            document.getElementById('res-max').innerText = data['近期最高'];
+            document.getElementById('res-link').href = data['預約連結'];
+        }
+
+        function showManualList() {
+            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.remove('hidden');
+        }
+
+        function renderManualList() {
+            const select = document.getElementById('manual-select');
+            allCommunities.forEach((item, index) => {
+                if(!item['社區名稱']) return;
+                const option = document.createElement('option');
+                option.value = index;
+                option.text = item['社區名稱'];
+                select.appendChild(option);
+            });
+        }
+
+        function manualSelect(index) {
+            if(index === "") return;
+            showResult(allCommunities[index]);
+        }
+
+        // 計算距離公式 (Haversine formula)
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
+            var R = 6371; 
+            var dLat = deg2rad(lat2-lat1);  
+            var dLon = deg2rad(lon2-lon1); 
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+                    Math.sin(dLon/2) * Math.sin(dLon/2); 
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+            var d = R * c; 
+            return d;
+        }
+        function deg2rad(deg) { return deg * (Math.PI/180); }
+    </script>
+</body>
+</html>
