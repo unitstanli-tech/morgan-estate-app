@@ -81,7 +81,7 @@
 
         // 初始化：預先抓取 Google Sheet 資料
         window.onload = function() {
-            if(googleSheetUrl === '這裡貼上你的神奇連結' || googleSheetUrl === '') {
+            if(googleSheetUrl === 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv' || googleSheetUrl === '') {
                 alert('提醒：請記得編輯 index.html，將 googleSheetUrl 換成你的 CSV 連結喔！(目前將使用測試模式)');
                 // 測試資料，讓你沒貼連結也能先體驗
                 allCommunities = [
