@@ -3,16 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <!-- 關鍵修改：加入這行 meta，解決 Google Drive 圖片破圖問題 -->
     <meta name="referrer" content="no-referrer">
-    
     <title>社區行情即時查</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
         body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f0f2f5; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
@@ -27,16 +25,15 @@
     <div class="w-full bg-white shadow-md z-20 agent-header sticky top-0">
         <div class="max-w-md mx-auto px-4 py-3 flex items-center space-x-3">
             <div class="relative flex-shrink-0">
-                <!-- 這裡也加上 no-referrer 以防萬一 -->
-                <img id="agent-photo" referrerpolicy="no-referrer" src="https://via.placeholder.com/150?text=Agent" alt="房仲頭像" class="w-14 h-14 rounded-full border-2 border-blue-500 object-cover p-0.5 bg-white">
+                <img id="agent-photo" referrerpolicy="no-referrer" src="" alt="房仲頭像" class="w-14 h-14 rounded-full border-2 border-blue-500 object-cover p-0.5 bg-white">
                 <div class="absolute bottom-0 right-0 bg-green-500 w-3.5 h-3.5 rounded-full border-2 border-white"></div>
             </div>
             <div class="flex-1 min-w-0">
                 <div class="flex items-center">
-                    <h2 id="agent-name" class="text-lg font-bold text-gray-800 truncate">房產顧問</h2>
+                    <h2 id="agent-name" class="text-lg font-bold text-gray-800 truncate">載入中...</h2>
                     <span class="ml-2 text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold flex-shrink-0">專業認證</span>
                 </div>
-                <p class="text-xs text-gray-500 truncate mt-0.5">證號：<span id="agent-license">請填寫證號</span></p>
+                <p class="text-xs text-gray-500 truncate mt-0.5">證號：<span id="agent-license">...</span></p>
                 <div class="mt-2 flex space-x-2">
                     <a id="btn-call" href="#" class="bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs font-bold flex items-center hover:bg-gray-200 transition">
                         <i class="fas fa-phone-alt mr-1.5 text-blue-600"></i> 致電
@@ -51,27 +48,45 @@
 
     <!-- 主內容區 -->
     <div class="w-full max-w-md px-4 mt-4">
+        
         <div class="text-center mb-5 mt-2">
             <h1 class="text-xl font-bold text-gray-800">🏠 社區行情快搜</h1>
             <p class="text-gray-400 text-xs mt-1">走到哪查到哪 • 實價登錄不求人</p>
         </div>
 
-        <div id="status-area" class="bg-white rounded-xl shadow-lg p-6 text-center border border-gray-100">
-            <div class="space-y-4">
+        <!-- 狀態與按鈕區 -->
+        <div id="status-area" class="bg-white rounded-xl shadow-lg p-6 text-center border border-gray-100 min-h-[200px] flex flex-col justify-center">
+            
+            <!-- A. 初始化載入畫面 (預設顯示) -->
+            <div id="init-loader">
+                <div class="loader mb-3"></div>
+                <p class="text-gray-500 font-bold animate-pulse">正在下載房市資料庫...</p>
+                <p class="text-xs text-gray-400 mt-2">請稍候，系統連線中</p>
+            </div>
+
+            <!-- B. 功能按鈕 (預設隱藏，下載完才顯示) -->
+            <div id="main-buttons" class="hidden space-y-4">
                 <button onclick="startGPS()" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg text-lg flex items-center justify-center gap-2 transform active:scale-95 transition-all">
                     <i class="fas fa-map-marker-alt animate-bounce"></i> 顯示此地行情
                 </button>
                 <button onclick="showManualList()" class="w-full bg-white border-2 border-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2 transition">
                     <i class="fas fa-list"></i> 手動選擇社區
                 </button>
+                <p class="text-xs text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫已更新</p>
             </div>
-            <div id="loading" class="hidden mt-6"><div class="loader"></div><p class="text-sm text-gray-500 mt-2">衛星定位分析中...</p></div>
+
+            <!-- C. GPS 分析中畫面 -->
+            <div id="gps-loading" class="hidden">
+                <div class="loader mb-3"></div>
+                <p class="text-sm text-gray-500 mt-2">衛星定位分析中...</p>
+            </div>
         </div>
 
+        <!-- 結果顯示區 -->
         <div id="result-area" class="hidden bg-white rounded-xl shadow-lg overflow-hidden mt-4 border border-gray-100">
             <div class="img-container">
-                <!-- 關鍵修改：加入 referrerpolicy="no-referrer" -->
-                <img id="res-img" referrerpolicy="no-referrer" src="" alt="社區外觀" onerror="this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image'">
+                <!-- 這裡加上 onerror 處理，如果圖片壞掉會顯示預設圖 -->
+                <img id="res-img" referrerpolicy="no-referrer" src="" alt="社區外觀" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image';">
                 <div class="absolute bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent w-full p-4 pt-12">
                     <h2 id="res-name" class="text-2xl font-bold text-white shadow-sm leading-tight">社區名稱</h2>
                 </div>
@@ -117,7 +132,7 @@
         <div id="manual-area" class="hidden bg-white rounded-xl shadow-lg p-6 mt-4">
             <p class="text-sm text-gray-600 mb-3 font-bold flex items-center"><i class="fas fa-search-location mr-2"></i>請選擇您所在的社區：</p>
             <select id="manual-select" class="w-full p-3 border border-gray-300 rounded-lg mb-4 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="manualSelect(this.value)">
-                <option value="">-- 資料讀取中 --</option>
+                <option value="">-- 請先等待資料下載 --</option>
             </select>
             <button onclick="location.reload()" class="w-full text-gray-500 text-sm underline">返回首頁</button>
         </div>
@@ -129,6 +144,7 @@
 
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {showSuccess();}"></iframe>
 
+    <!-- 模態視窗 -->
     <div id="form-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 px-4">
         <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-60 backdrop-blur-sm" onclick="closeModal()"></div>
         <div class="modal-container bg-white w-full max-w-md mx-auto rounded-2xl shadow-2xl z-50 overflow-hidden transform transition-all">
@@ -175,14 +191,13 @@
 
     <script>
         // ==============================================
-        // 🔴 房仲個人資料設定區
+        // 🔴 請在這裡修改你的個人資料
         // ==============================================
-        const agentName     = "你的名字";           
-        const agentLicense  = "(xx)登字第xxxxxx號"; 
-        const agentPhone    = "09xxxxxxxx";        
+        const agentName     = "王大明";           
+        const agentLicense  = "(113)登字第123456號"; 
+        const agentPhone    = "0912345678";        
         const agentLineLink = "https://line.me/ti/p/你的ID"; 
-        // 大頭照也記得要加上 Drive 轉換邏輯，或者直接用 Imgur
-        const agentPhoto    = "https://via.placeholder.com/150?text=Photo"; 
+        const agentPhoto    = "https://placehold.co/150x150?text=Agent"; // 強烈建議改用 Imgur 連結
 
         // ==============================================
         // 🟢 系統 ID 設定區
@@ -219,15 +234,26 @@
                 download: true, header: true,
                 complete: function(results) { 
                     allCommunities = results.data; 
+                    
+                    // 資料下載完成後，切換顯示狀態
+                    console.log("資料庫下載完成，筆數：" + allCommunities.length);
+                    document.getElementById('init-loader').classList.add('hidden'); // 隱藏 Loading
+                    document.getElementById('main-buttons').classList.remove('hidden'); // 顯示按鈕
+                    
                     renderManualList(); 
                 },
-                error: function(err) { console.error(err); }
+                error: function(err) { 
+                    console.error(err); 
+                    alert("資料庫連線失敗，請檢查網路狀況");
+                }
             });
         };
 
         function startGPS() {
-            document.getElementById('status-area').classList.add('hidden');
-            document.getElementById('loading').classList.remove('hidden');
+            // 切換成 GPS Loading
+            document.getElementById('main-buttons').classList.add('hidden');
+            document.getElementById('gps-loading').classList.remove('hidden');
+
             if (navigator.geolocation) navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
             else { alert("不支援定位"); showManualList(); }
         }
@@ -242,13 +268,18 @@
                 const radius = parseFloat(item['偵測半徑']) || 100;
                 if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
-            document.getElementById('loading').classList.add('hidden');
+            
+            document.getElementById('gps-loading').classList.add('hidden'); // 隱藏 GPS Loading
+            
             if (found) showResult(found);
-            else { alert("附近無符合資料，請手動選擇。"); showManualList(); }
+            else { 
+                alert("附近無符合資料，請手動選擇"); 
+                showManualList(); 
+            }
         }
 
         function errorGPS() {
-            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('gps-loading').classList.add('hidden');
             alert("無法定位，請手動選擇");
             showManualList();
         }
@@ -264,8 +295,8 @@
             document.getElementById('input-community').value = data['社區名稱'];
             document.getElementById('modal-community-name').innerText = data['社區名稱'];
 
+            // 圖片顯示邏輯 (如果使用者還沒換圖床，這裡會試著跑，但不保證 Google Drive 能行)
             let imgUrl = data['圖片連結'];
-            // 這裡更新了正則表達式，確保抓得更準
             if(imgUrl && imgUrl.includes('drive.google.com')) {
                 const idMatch = imgUrl.match(/\/d\/([-\w]{25,})/);
                 if(idMatch) imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[1];
@@ -289,7 +320,7 @@
         }
 
         function showManualList() {
-            document.getElementById('loading').classList.add('hidden');
+            document.getElementById('gps-loading').classList.add('hidden'); // 確保 GPS Loading 關閉
             document.getElementById('status-area').classList.add('hidden');
             document.getElementById('manual-area').classList.remove('hidden');
         }
