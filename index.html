@@ -62,7 +62,7 @@
         <div id="manual-area" class="hidden mt-4 text-left">
             <p class="text-sm text-gray-500 mb-2">無法定位或距離太遠，請手動選擇：</p>
             <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4" onchange="manualSelect(this.value)">
-                <option value="">-- 請選擇社區 --</option>
+                <option value="">-- 資料讀取中 --</option>
             </select>
             <button onclick="location.reload()" class="w-full text-gray-400 text-sm underline">返回</button>
         </div>
@@ -119,10 +119,16 @@
 
     <script>
         // ==============================================
-        // 🔴 設定區域 (你的資料)
+        // 🔴 請在這裡修改 (重點區域)
         // ==============================================
         
-        const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv'; 
+        // 1. 請填入你的 Google Sheet ID (不是那串很長的網址，是中間的亂碼)
+        const sheetID = '這裡請填入你的SheetID'; 
+        
+        // 程式會自動組裝成 API 格式 (不要動這行)
+        const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
+
+        // 2. Google Form 設定 (你原本的那些 ID 留著)
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
         
         const entryId_Name  = 'entry.1415901609';
@@ -143,16 +149,23 @@
         document.getElementById('input-community').name = entryId_Comm;
 
         window.onload = function() {
-            // 直接讀取，移除多餘判斷
+            // 檢查是否忘了填 ID
+            if(sheetID === '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE') {
+                alert("請記得在 index.html 裡填入你的 Google Sheet ID 喔！");
+                return;
+            }
+
             Papa.parse(googleSheetUrl, {
                 download: true, header: true,
                 complete: function(results) { 
                     allCommunities = results.data; 
-                    console.log("資料已載入:", allCommunities); // 開發者工具看得到
+                    console.log("資料已載入:", allCommunities); 
                     renderManualList(); 
                 },
                 error: function(err) {
-                    alert("讀取 Google Sheet 失敗，請檢查網址或權限");
+                    // 這裡改為更詳細的錯誤提示
+                    console.error(err);
+                    alert("讀取失敗！請確認：\n1. Google Sheet 已發布到網路\n2. 權限沒有設為「僅限公司內部」\n3. Sheet ID 填寫正確");
                 }
             });
         };
@@ -175,14 +188,12 @@
             let hasData = false;
 
             allCommunities.forEach(item => {
-                // 防呆：如果 Sheet 裡有一行是空的，直接跳過
                 if(!item['緯度'] || !item['社區名稱']) return;
-                
                 hasData = true;
                 const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
                 const radius = parseFloat(item['偵測半徑']) || 100;
                 
-                debugMsg += item['社區名稱'] + " 距離: " + Math.round(dist) + "公尺 (半徑:" + radius + ")\n";
+                debugMsg += item['社區名稱'] + " 距離: " + Math.round(dist) + "公尺\n";
 
                 if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
@@ -192,11 +203,8 @@
             if (found) {
                 showResult(found);
             } else {
-                // 如果沒有找到，顯示除錯訊息讓你知道為什麼 (只有自己看得到，客戶不會按兩次)
-                // ⚠️ 如果不想看到這個彈窗，把下面這行 alert 刪掉即可
-                if(!hasData) alert("錯誤：沒讀到任何資料！請檢查 Google Sheet 標題是否為「緯度」、「社區名稱」。");
-                else alert("附近無符合資料。\n\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點來測試。");
-                
+                // 如果是開發測試中，顯示這行來除錯
+                alert("附近無符合資料。\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點測試。");
                 showManualList(); 
             }
         }
@@ -229,9 +237,7 @@
 
         function renderManualList() {
             const select = document.getElementById('manual-select');
-            // 清空舊選項以免重複
             select.innerHTML = '<option value="">-- 請選擇社區 --</option>';
-            
             allCommunities.forEach((item, index) => {
                 if(!item['社區名稱']) return;
                 const option = document.createElement('option');
