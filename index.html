@@ -119,16 +119,16 @@
 
     <script>
         // ==============================================
-        // 🔴 請在這裡修改 (重點區域)
+        // 🔴 這裡我已經幫你填好 ID 了！
         // ==============================================
         
-        // 1. 請填入你的 Google Sheet ID (不是那串很長的網址，是中間的亂碼)
+        // 你的 Sheet ID
         const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE'; 
         
-        // 程式會自動組裝成 API 格式 (不要動這行)
+        // 自動組裝連結 (gviz/tq?tqx=out:csv 是關鍵)
         const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
 
-        // 2. Google Form 設定 (你原本的那些 ID 留著)
+        // Google Form 設定
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
         
         const entryId_Name  = 'entry.1415901609';
@@ -149,8 +149,8 @@
         document.getElementById('input-community').name = entryId_Comm;
 
         window.onload = function() {
-            // 檢查是否忘了填 ID
-            if(sheetID === '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE') {
+            // 這個檢查邏輯我改掉了，避免誤判
+            if(sheetID === '這裡請填入你的SheetID') {
                 alert("請記得在 index.html 裡填入你的 Google Sheet ID 喔！");
                 return;
             }
@@ -163,9 +163,8 @@
                     renderManualList(); 
                 },
                 error: function(err) {
-                    // 這裡改為更詳細的錯誤提示
                     console.error(err);
-                    alert("讀取失敗！請確認：\n1. Google Sheet 已發布到網路\n2. 權限沒有設為「僅限公司內部」\n3. Sheet ID 填寫正確");
+                    alert("讀取失敗！請確認：\n1. Google Sheet 已發布到網路\n2. Sheet ID: " + sheetID);
                 }
             });
         };
@@ -183,13 +182,15 @@
             let found = null; 
             let minDist = Infinity;
             
-            // 除錯變數
+            // 除錯資訊
             let debugMsg = "GPS 定位成功！\n您的位置: " + userLat.toFixed(4) + ", " + userLng.toFixed(4) + "\n\n";
             let hasData = false;
 
             allCommunities.forEach(item => {
+                // 檢查是否有資料 (防呆機制)
                 if(!item['緯度'] || !item['社區名稱']) return;
                 hasData = true;
+                
                 const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
                 const radius = parseFloat(item['偵測半徑']) || 100;
                 
@@ -203,8 +204,9 @@
             if (found) {
                 showResult(found);
             } else {
-                // 如果是開發測試中，顯示這行來除錯
-                alert("附近無符合資料。\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點測試。");
+                // 如果 Sheet 是空的，或者半徑設太小，都會進到這裡
+                // ⚠️ 如果你確定功能正常了，可以把下面這行 alert 註解掉
+                alert("附近無符合資料 (除錯模式)。\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點測試。");
                 showManualList(); 
             }
         }
