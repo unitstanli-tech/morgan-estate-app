@@ -6,138 +6,218 @@
     <title>社區行情即時查</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
+    <!-- 引入 FontAwesome 圖示庫 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
-        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f0f2f5; }
+        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .modal { transition: opacity 0.25s ease; }
         body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
+        /* 圖片容器 */
+        .img-container { height: 200px; background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; }
     </style>
 </head>
-<body class="flex items-center justify-center min-h-screen px-4">
+<body class="flex flex-col items-center min-h-screen pb-10">
 
-    <!-- 主卡片 -->
-    <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden p-6 text-center z-10 relative">
-        <h1 class="text-2xl font-bold text-gray-800 mb-2">🏠 房產行情即時通</h1>
-        <p class="text-gray-500 text-sm mb-6">即時查詢本棟大樓成交實價</p>
-
-        <!-- 狀態顯示區 -->
-        <div id="status-area">
-            <div class="space-y-4">
-                <button onclick="startGPS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg shadow text-lg flex items-center justify-center gap-2">
-                    📍 顯示此地行情
-                </button>
-                <button onclick="showManualList()" class="w-full bg-white border-2 border-gray-300 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
-                    📋 手動選擇社區
-                </button>
+    <!-- 1. 專業房仲名片區 (固定在最上方) -->
+    <div class="w-full bg-white shadow-md z-20">
+        <div class="max-w-md mx-auto px-4 py-4 flex items-center space-x-4">
+            <!-- 頭像 -->
+            <div class="relative">
+                <img id="agent-photo" src="https://via.placeholder.com/150" alt="房仲頭像" class="w-16 h-16 rounded-full border-2 border-blue-500 object-cover">
+                <div class="absolute bottom-0 right-0 bg-green-500 w-4 h-4 rounded-full border-2 border-white"></div>
+            </div>
+            <!-- 文字資訊 -->
+            <div class="flex-1">
+                <h2 class="text-lg font-bold text-gray-800 flex items-center">
+                    <span id="agent-name">王大明</span>
+                    <span class="ml-2 text-xs bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full">專業顧問</span>
+                </h2>
+                <p class="text-xs text-gray-500 mt-1">證號：<span id="agent-license">(112)登字第123456號</span></p>
+                <div class="mt-2 flex space-x-2">
+                    <a id="btn-call" href="#" class="bg-gray-100 text-gray-600 px-3 py-1 rounded text-xs font-bold flex items-center hover:bg-gray-200">
+                        <i class="fas fa-phone-alt mr-1"></i> 致電
+                    </a>
+                    <a id="btn-line" href="#" target="_blank" class="bg-green-500 text-white px-3 py-1 rounded text-xs font-bold flex items-center hover:bg-green-600">
+                        <i class="fab fa-line mr-1"></i> 加LINE
+                    </a>
+                </div>
             </div>
         </div>
+    </div>
 
-        <!-- 結果顯示區 -->
-        <div id="result-area" class="hidden text-left mt-4">
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-                <p class="text-sm text-blue-600 font-bold">您目前位於：</p>
-                <h2 id="res-name" class="text-3xl font-bold text-gray-900">社區名稱</h2>
+    <!-- 主內容區 -->
+    <div class="w-full max-w-md px-4 mt-6">
+        
+        <!-- 標題 -->
+        <div class="text-center mb-6">
+            <h1 class="text-2xl font-bold text-gray-800">🏠 社區行情快搜</h1>
+            <p class="text-gray-500 text-sm">走到哪查到哪，實價登錄不求人</p>
+        </div>
+
+        <!-- 狀態與按鈕 -->
+        <div id="status-area" class="bg-white rounded-xl shadow-lg p-6 text-center">
+            <div class="space-y-4">
+                <button onclick="startGPS()" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-4 px-4 rounded-lg shadow-lg text-lg flex items-center justify-center gap-2 transform active:scale-95 transition">
+                    <i class="fas fa-map-marker-alt"></i> 顯示此地行情
+                </button>
+                <button onclick="showManualList()" class="w-full bg-white border-2 border-gray-200 text-gray-700 font-bold py-3 px-4 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2">
+                    <i class="fas fa-list"></i> 手動選擇社區
+                </button>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-6">
-                <div class="bg-gray-100 p-3 rounded text-center">
-                    <p class="text-xs text-gray-500">近半年均價</p>
-                    <p id="res-price" class="text-xl font-bold text-red-600">-</p>
-                </div>
-                <div class="bg-gray-100 p-3 rounded text-center">
-                    <p class="text-xs text-gray-500">近期最高</p>
-                    <p id="res-max" class="text-xl font-bold text-gray-800">-</p>
+            <div id="loading" class="hidden mt-4"><div class="loader"></div><p class="text-sm text-gray-500">正在分析 GPS 座標...</p></div>
+        </div>
+
+        <!-- 結果顯示卡片 (預設隱藏) -->
+        <div id="result-area" class="hidden bg-white rounded-xl shadow-lg overflow-hidden mt-4">
+            <!-- 圖片區 -->
+            <div class="img-container relative">
+                <img id="res-img" src="" alt="社區外觀" onerror="this.src='https://via.placeholder.com/400x200?text=No+Image'">
+                <div class="absolute bottom-0 left-0 bg-gradient-to-t from-black to-transparent w-full p-4 pt-10">
+                    <h2 id="res-name" class="text-2xl font-bold text-white shadow-sm">社區名稱</h2>
                 </div>
             </div>
 
-            <button onclick="openModal()" class="w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse">
-                👀 查看隱藏/急售房源
-            </button>
-            
-            <button onclick="location.reload()" class="mt-4 w-full text-gray-400 text-sm underline">重新查詢</button>
+            <div class="p-6">
+                <!-- 價格數據 -->
+                <div class="grid grid-cols-2 gap-4 mb-6">
+                    <div class="bg-gray-50 p-3 rounded-lg text-center border border-gray-100">
+                        <p class="text-xs text-gray-500 mb-1">近半年成交均價</p>
+                        <p id="res-price" class="text-xl font-bold text-red-600">-</p>
+                    </div>
+                    <div class="bg-gray-50 p-3 rounded-lg text-center border border-gray-100">
+                        <p class="text-xs text-gray-500 mb-1">近期最高成交</p>
+                        <p id="res-max" class="text-xl font-bold text-gray-800">-</p>
+                    </div>
+                </div>
+
+                <!-- 房貸試算小工具 -->
+                <div class="bg-blue-50 rounded-lg p-4 mb-6">
+                    <h3 class="text-sm font-bold text-blue-800 mb-3 flex items-center"><i class="fas fa-calculator mr-2"></i>簡易房貸試算</h3>
+                    <div class="flex gap-2 text-sm mb-2">
+                        <input type="number" id="calc-price" placeholder="總價(萬)" class="w-1/2 p-2 border rounded" oninput="calculateMortgage()">
+                        <select id="calc-years" class="w-1/2 p-2 border rounded" onchange="calculateMortgage()">
+                            <option value="30">30年</option>
+                            <option value="20">20年</option>
+                            <option value="40">40年</option>
+                        </select>
+                    </div>
+                    <p class="text-xs text-gray-500">預估月付 (以利率2.2%寬限期後試算)：<br><span id="calc-result" class="text-lg font-bold text-blue-600">請輸入總價</span></p>
+                </div>
+
+                <!-- 行動呼籲 -->
+                <button onclick="openModal()" class="w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse flex items-center justify-center gap-2">
+                    <i class="fas fa-search-plus"></i> 查看隱藏/急售房源
+                </button>
+                <button onclick="location.reload()" class="mt-4 w-full text-gray-400 text-sm underline">重新查詢</button>
+            </div>
         </div>
 
         <!-- 手動選單區 -->
-        <div id="manual-area" class="hidden mt-4 text-left">
-            <p class="text-sm text-gray-500 mb-2">無法定位或距離太遠，請手動選擇：</p>
-            <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4" onchange="manualSelect(this.value)">
+        <div id="manual-area" class="hidden bg-white rounded-xl shadow-lg p-6 mt-4">
+            <p class="text-sm text-gray-500 mb-2 font-bold">請選擇您所在的社區：</p>
+            <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4 bg-gray-50" onchange="manualSelect(this.value)">
                 <option value="">-- 資料讀取中 --</option>
             </select>
-            <button onclick="location.reload()" class="w-full text-gray-400 text-sm underline">返回</button>
+            <button onclick="location.reload()" class="w-full text-gray-500 text-sm">返回首頁</button>
         </div>
-
-        <div id="loading" class="hidden"><div class="loader"></div><p class="text-sm text-gray-500">資料比對中...</p></div>
     </div>
 
-    <!-- 隱藏 iframe -->
+    <!-- 底部版權 -->
+    <div class="mt-8 text-center text-xs text-gray-400 pb-4">
+        &copy; 2024 <span id="footer-name">房產顧問</span> All Rights Reserved.
+    </div>
+
+    <!-- 隱藏 iframe (不跳頁用) -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {showSuccess();}"></iframe>
 
-    <!-- 模態視窗 -->
+    <!-- 模態視窗 (Modal) -->
     <div id="form-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeModal()"></div>
-        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-60" onclick="closeModal()"></div>
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded-xl shadow-2xl z-50 overflow-y-auto transform transition-all">
+            
             <div class="modal-content py-4 text-left px-6" id="form-content">
-                <div class="flex justify-between items-center pb-3">
-                    <p class="text-2xl font-bold">索取隱藏名單</p>
-                    <div class="cursor-pointer z-50" onclick="closeModal()">
-                        <svg class="fill-current text-black" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
+                <div class="flex justify-between items-center pb-3 border-b border-gray-100 mb-4">
+                    <p class="text-xl font-bold text-gray-800">索取隱藏名單</p>
+                    <div class="cursor-pointer z-50 p-2" onclick="closeModal()">
+                        <i class="fas fa-times text-gray-500"></i>
                     </div>
                 </div>
-                <p class="text-sm text-gray-600 mb-4">請留下聯絡方式，系統將傳送 <span id="modal-community-name" class="font-bold text-blue-600"></span> 的詳細資料給您。</p>
-                
+
+                <p class="text-sm text-gray-600 mb-4 bg-yellow-50 p-3 rounded border border-yellow-100">
+                    <i class="fas fa-info-circle text-yellow-500 mr-1"></i>
+                    系統將傳送 <span id="modal-community-name" class="font-bold text-gray-900"></span> 的詳細資料給您。
+                </p>
+
                 <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2">您的稱呼 (必填)</label>
-                        <input type="text" id="input-name" name="" required placeholder="王先生/林小姐" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">您的稱呼</label>
+                        <input type="text" id="input-name" name="" required placeholder="例如：王先生" class="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-500 transition">
                     </div>
                     <div class="mb-4">
-                        <label class="block text-gray-700 text-sm font-bold mb-2">手機號碼 (必填)</label>
-                        <input type="tel" id="input-phone" name="" required placeholder="09xx-xxx-xxx" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">手機號碼</label>
+                        <input type="tel" id="input-phone" name="" required placeholder="09xx-xxx-xxx" class="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-500 transition">
                     </div>
-                    <div class="mb-4">
+                    <div class="mb-6">
                         <label class="block text-gray-700 text-sm font-bold mb-2">LINE ID (選填)</label>
-                        <input type="text" id="input-line" name="" placeholder="方便加Line聯繫" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                        <input type="text" id="input-line" name="" placeholder="方便加Line傳送資料" class="w-full p-3 bg-gray-50 border border-gray-200 rounded focus:outline-none focus:border-blue-500 transition">
                     </div>
                     <input type="hidden" id="input-community" name="" value="">
-                    <div class="flex justify-end pt-2">
-                        <button type="button" onclick="closeModal()" class="px-4 bg-transparent p-3 rounded-lg text-indigo-500 hover:bg-gray-100 hover:text-indigo-400 mr-2">取消</button>
-                        <button type="submit" class="px-4 bg-indigo-500 p-3 rounded-lg text-white hover:bg-indigo-400">送出索取</button>
-                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold p-3 rounded-lg hover:bg-blue-700 shadow transition">
+                        立即送出索取
+                    </button>
                 </form>
             </div>
+
+            <!-- 成功畫面 -->
             <div id="success-msg" class="hidden py-10 px-6 text-center">
-                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
-                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
+                    <i class="fas fa-check text-2xl text-green-600"></i>
                 </div>
-                <h3 class="text-lg leading-6 font-medium text-gray-900">索取成功！</h3>
-                <p class="mt-2 text-sm text-gray-500">我已收到您的需求，會盡快將資料整理給您。</p>
-                <button onclick="closeModal()" class="mt-6 w-full bg-gray-600 text-white py-2 rounded">關閉</button>
+                <h3 class="text-xl font-bold text-gray-900 mb-2">需求已送出！</h3>
+                <p class="text-gray-500 mb-6">我已收到您的訊息，會盡快將資料整理給您。</p>
+                <button onclick="closeModal()" class="w-full bg-gray-200 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-300">關閉視窗</button>
             </div>
         </div>
     </div>
 
     <script>
         // ==============================================
-        // 🔴 這裡我已經幫你填好 ID 了！
+        // 🔴 設定區域 (請修改這裡)
         // ==============================================
         
-        // 你的 Sheet ID
-        const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE'; 
-        
-        // 自動組裝連結 (gviz/tq?tqx=out:csv 是關鍵)
-        const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
+        // 1. 你的資料
+        const agentName = "你的名字";
+        const agentLicense = "(1xx)登字第xxxxxx號";
+        const agentPhoto = "https://drive.google.com/file/d/1KYJYJhR5sfL1NsVcormqedwusbT7qdFq/view?usp=drive_link"; // 例如 https://i.imgur.com/xxxxx.jpg
+        const agentPhone = "09xxxxxxxx"; // 你的電話
+        const agentLineLink = "https://line.me/ti/p/你的ID"; // 你的加Line連結
 
-        // Google Form 設定
+        // 2. Google Sheet ID
+        const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE';  // 請填入你的 ID
+
+        // 3. Google Form 設定
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
-        
         const entryId_Name  = 'entry.1415901609';
         const entryId_Phone = 'entry.1276512542';
         const entryId_Line  = 'entry.1641674903';
         const entryId_Comm  = 'entry.1383846499';
 
         // ==============================================
-        
+
+        // 更新介面資料
+        document.getElementById('agent-name').innerText = agentName;
+        document.getElementById('footer-name').innerText = agentName;
+        document.getElementById('agent-license').innerText = agentLicense;
+        document.getElementById('agent-photo').src = agentPhoto;
+        document.getElementById('btn-call').href = "tel:" + agentPhone;
+        document.getElementById('btn-line').href = agentLineLink;
+
+        // 系統邏輯
+        const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
         let allCommunities = [];
         let currentCommunityName = "";
         var submitted = false;
@@ -149,23 +229,14 @@
         document.getElementById('input-community').name = entryId_Comm;
 
         window.onload = function() {
-            // 這個檢查邏輯我改掉了，避免誤判
-            if(sheetID === '這裡請填入你的SheetID') {
-                alert("請記得在 index.html 裡填入你的 Google Sheet ID 喔！");
-                return;
-            }
-
+            if(sheetID.includes('你的SheetID')) { alert("請記得設定 agent 資料和 Sheet ID！"); return; }
             Papa.parse(googleSheetUrl, {
                 download: true, header: true,
                 complete: function(results) { 
                     allCommunities = results.data; 
-                    console.log("資料已載入:", allCommunities); 
                     renderManualList(); 
                 },
-                error: function(err) {
-                    console.error(err);
-                    alert("讀取失敗！請確認：\n1. Google Sheet 已發布到網路\n2. Sheet ID: " + sheetID);
-                }
+                error: function(err) { console.error(err); }
             });
         };
 
@@ -179,34 +250,19 @@
         function successGPS(position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
-            let found = null; 
-            let minDist = Infinity;
+            let found = null; let minDist = Infinity;
             
-            // 除錯資訊
-            let debugMsg = "GPS 定位成功！\n您的位置: " + userLat.toFixed(4) + ", " + userLng.toFixed(4) + "\n\n";
-            let hasData = false;
-
             allCommunities.forEach(item => {
-                // 檢查是否有資料 (防呆機制)
                 if(!item['緯度'] || !item['社區名稱']) return;
-                hasData = true;
-                
                 const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
                 const radius = parseFloat(item['偵測半徑']) || 100;
-                
-                debugMsg += item['社區名稱'] + " 距離: " + Math.round(dist) + "公尺\n";
-
                 if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
 
             document.getElementById('loading').classList.add('hidden');
-            
-            if (found) {
-                showResult(found);
-            } else {
-                // 如果 Sheet 是空的，或者半徑設太小，都會進到這裡
-                // ⚠️ 如果你確定功能正常了，可以把下面這行 alert 註解掉
-                alert("附近無符合資料 (除錯模式)。\n" + debugMsg + "\n請在 Sheet 把「偵測半徑」改大一點測試。");
+            if (found) showResult(found);
+            else { 
+                alert("附近無符合資料，請嘗試手動選擇。");
                 showManualList(); 
             }
         }
@@ -227,8 +283,39 @@
             document.getElementById('res-price').innerText = data['成交均價'];
             document.getElementById('res-max').innerText = data['近期最高'];
             
+            // 處理圖片 (支援 Google Drive 連結轉換)
+            let imgUrl = data['圖片連結'];
+            if(imgUrl && imgUrl.includes('drive.google.com')) {
+                // 嘗試提取 ID
+                const idMatch = imgUrl.match(/[-\w]{25,}/);
+                if(idMatch) imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[0];
+            }
+            if(imgUrl) document.getElementById('res-img').src = imgUrl;
+
             document.getElementById('input-community').value = currentCommunityName;
             document.getElementById('modal-community-name').innerText = currentCommunityName;
+            
+            // 預設填入總價試算 (將文字中的數字取出，例如 "50萬/坪" 很難算，這裡先留空讓客戶自己填)
+             // 如果你有總價欄位，可以自動填入 document.getElementById('calc-price').value = data['建議總價'];
+        }
+
+        function calculateMortgage() {
+            const price = parseFloat(document.getElementById('calc-price').value);
+            const years = parseInt(document.getElementById('calc-years').value);
+            const rate = 2.2 / 100; // 假設利率 2.2%
+
+            if(!price) {
+                document.getElementById('calc-result').innerText = "請輸入總價";
+                return;
+            }
+            
+            // 本息平均攤還公式
+            const loanAmount = price * 10000 * 0.8; // 假設貸款 8成
+            const monthRate = rate / 12;
+            const totalMonths = years * 12;
+            const monthlyPay = (loanAmount * monthRate * Math.pow(1 + monthRate, totalMonths)) / (Math.pow(1 + monthRate, totalMonths) - 1);
+            
+            document.getElementById('calc-result').innerText = "約 " + Math.round(monthlyPay).toLocaleString() + " 元/月 (貸8成)";
         }
 
         function showManualList() {
@@ -248,35 +335,11 @@
             });
         }
 
-        function manualSelect(index) {
-            if(index === "") return;
-            showResult(allCommunities[index]);
-        }
-
-        function openModal() {
-            document.body.classList.add('modal-active');
-            document.getElementById('form-modal').classList.remove('opacity-0', 'pointer-events-none');
-        }
-        function closeModal() {
-            document.body.classList.remove('modal-active');
-            document.getElementById('form-modal').classList.add('opacity-0', 'pointer-events-none');
-            setTimeout(() => {
-                document.getElementById('form-content').classList.remove('hidden');
-                document.getElementById('success-msg').classList.add('hidden');
-                submitted = false;
-            }, 300);
-        }
-        function showSuccess() {
-            document.getElementById('form-content').classList.add('hidden');
-            document.getElementById('success-msg').classList.remove('hidden');
-            document.getElementById('google-form').reset();
-        }
-
-        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-            var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1);
-            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c;
-        }
+        function manualSelect(index) { if(index !== "") showResult(allCommunities[index]); }
+        function openModal() { document.body.classList.add('modal-active'); document.getElementById('form-modal').classList.remove('opacity-0', 'pointer-events-none'); }
+        function closeModal() { document.body.classList.remove('modal-active'); document.getElementById('form-modal').classList.add('opacity-0', 'pointer-events-none'); setTimeout(() => { document.getElementById('form-content').classList.remove('hidden'); document.getElementById('success-msg').classList.add('hidden'); submitted = false; }, 300); }
+        function showSuccess() { document.getElementById('form-content').classList.add('hidden'); document.getElementById('success-msg').classList.remove('hidden'); document.getElementById('google-form').reset(); }
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) { var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
         function deg2rad(deg) { return deg * (Math.PI/180); }
     </script>
 </body>
