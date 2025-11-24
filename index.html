@@ -4,22 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>社區行情即時查</title>
-    <!-- 引入 Tailwind CSS (美化介面用) -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- 引入 PapaParse (讀取 CSV 用) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <style>
         body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f3f4f6; }
-        .card { transition: all 0.3s; }
         .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 20px auto; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        /* 模態視窗特效 */
+        .modal { transition: opacity 0.25s ease; }
+        body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
     </style>
 </head>
 <body class="flex items-center justify-center min-h-screen px-4">
 
-    <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden p-6 text-center">
+    <!-- 主卡片 -->
+    <div class="w-full max-w-md bg-white rounded-xl shadow-lg overflow-hidden p-6 text-center z-10 relative">
         <h1 class="text-2xl font-bold text-gray-800 mb-2">🏠 房產行情即時通</h1>
-        <p class="text-gray-500 text-sm mb-6">掃描即顯示您所在大樓的真實成交價</p>
+        <p class="text-gray-500 text-sm mb-6">即時查詢本棟大樓成交實價</p>
 
         <!-- 狀態顯示區 -->
         <div id="status-area">
@@ -33,7 +34,7 @@
             </div>
         </div>
 
-        <!-- 結果顯示區 (預設隱藏) -->
+        <!-- 結果顯示區 -->
         <div id="result-area" class="hidden text-left mt-4">
             <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
                 <p class="text-sm text-blue-600 font-bold">您目前位於：</p>
@@ -51,16 +52,17 @@
                 </div>
             </div>
 
-            <a id="res-link" href="#" target="_blank" class="block w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse">
+            <!-- 修改：按鈕不再跳轉，而是開啟模態視窗 -->
+            <button onclick="openModal()" class="w-full bg-green-600 hover:bg-green-700 text-white text-center font-bold py-3 rounded-lg shadow animate-pulse">
                 👀 查看隱藏/急售房源
-            </a>
+            </button>
             
             <button onclick="location.reload()" class="mt-4 w-full text-gray-400 text-sm underline">重新查詢</button>
         </div>
 
-        <!-- 錯誤/手動選單區 (預設隱藏) -->
+        <!-- 手動選單區 -->
         <div id="manual-area" class="hidden mt-4 text-left">
-            <p class="text-sm text-gray-500 mb-2">無法定位或附近無資料，請手動選擇：</p>
+            <p class="text-sm text-gray-500 mb-2">無法定位，請手動選擇：</p>
             <select id="manual-select" class="w-full p-3 border border-gray-300 rounded mb-4" onchange="manualSelect(this.value)">
                 <option value="">-- 請選擇社區 --</option>
             </select>
@@ -70,38 +72,103 @@
         <div id="loading" class="hidden"><div class="loader"></div><p class="text-sm text-gray-500">資料比對中...</p></div>
     </div>
 
+    <!-- 隱藏的 iframe (這是防止表單提交後跳轉頁面的關鍵) -->
+    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {showSuccess();}"></iframe>
+
+    <!-- 模態視窗 (Modal) - 內嵌表單 -->
+    <div id="form-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50">
+        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-50" onclick="closeModal()"></div>
+        
+        <div class="modal-container bg-white w-11/12 md:max-w-md mx-auto rounded shadow-lg z-50 overflow-y-auto">
+            
+            <!-- 表單內容 -->
+            <div class="modal-content py-4 text-left px-6" id="form-content">
+                <div class="flex justify-between items-center pb-3">
+                    <p class="text-2xl font-bold">索取隱藏名單</p>
+                    <div class="cursor-pointer z-50" onclick="closeModal()">
+                        <svg class="fill-current text-black" xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 18 18"><path d="M14.53 4.53l-1.06-1.06L9 7.94 4.53 3.47 3.47 4.53 7.94 9l-4.47 4.47 1.06 1.06L9 10.06l4.47 4.47 1.06-1.06L10.06 9z"></path></svg>
+                    </div>
+                </div>
+
+                <p class="text-sm text-gray-600 mb-4">請留下聯絡方式，系統將傳送 <span id="modal-community-name" class="font-bold text-blue-600"></span> 的詳細資料給您。</p>
+
+                <!-- 這裡就是你的自訂表單 -->
+                <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
+                    
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">您的稱呼</label>
+                        <input type="text" id="input-name" name="" required placeholder="王先生/林小姐" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-gray-700 text-sm font-bold mb-2">手機號碼</label>
+                        <input type="tel" id="input-phone" name="" required placeholder="09xx-xxx-xxx" class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline">
+                    </div>
+
+                    <!-- 隱藏欄位：用來自動填入社區名稱 -->
+                    <input type="hidden" id="input-community" name="" value="">
+
+                    <div class="flex justify-end pt-2">
+                        <button type="button" onclick="closeModal()" class="px-4 bg-transparent p-3 rounded-lg text-indigo-500 hover:bg-gray-100 hover:text-indigo-400 mr-2">取消</button>
+                        <button type="submit" class="px-4 bg-indigo-500 p-3 rounded-lg text-white hover:bg-indigo-400">送出索取</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- 送出成功後的畫面 -->
+            <div id="success-msg" class="hidden py-10 px-6 text-center">
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <svg class="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg>
+                </div>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">索取成功！</h3>
+                <p class="mt-2 text-sm text-gray-500">我已收到您的需求，會盡快將資料整理給您。</p>
+                <button onclick="closeModal()" class="mt-6 w-full bg-gray-600 text-white py-2 rounded">關閉</button>
+            </div>
+
+        </div>
+    </div>
+
     <script>
         // ==============================================
-        // 🔴 請在這裡貼上你的 Google Sheet CSV 連結
+        // 🔴 設定區域 (請在這裡填入你的資料)
         // ==============================================
+        
+        // 1. Google Sheet CSV 連結 (同上一步)
         const googleSheetUrl = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv'; 
-        // 例如: https://docs.google.com/spreadsheets/d/e/...../pub?output=csv
+
+        // 2. Google Form 設定 (請填入剛剛偵探工作找出來的代碼)
+        const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; // 記得要是 formResponse 結尾
+        const entryId_Name  = 'entry.1415901609'; // 姓名欄位的 ID
+        const entryId_Phone = 'entry.1276512542'; // 電話欄位的 ID
+        const entryId_Comm  = 'entry.1383846499'; // (選填) 如果你有設一個欄位存社區名稱，填這裡。沒有就留空。
+
+        // ==============================================
         
         let allCommunities = [];
+        let currentCommunityName = "";
+        var submitted = false; // 用來判斷表單是否送出
 
-        // 初始化：預先抓取 Google Sheet 資料
+        // 初始化設定表單 ID
+        document.getElementById('google-form').action = formActionURL;
+        document.getElementById('input-name').name = entryId_Name;
+        document.getElementById('input-phone').name = entryId_Phone;
+        if(entryId_Comm) document.getElementById('input-community').name = entryId_Comm;
+
+        // ... (以下為原有的 GPS 邏輯，我稍微整理過) ...
         window.onload = function() {
-            if(googleSheetUrl === 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv' || googleSheetUrl === '') {
-                alert('提醒：請記得編輯 index.html，將 googleSheetUrl 換成你的 CSV 連結喔！(目前將使用測試模式)');
-                // 測試資料，讓你沒貼連結也能先體驗
-                allCommunities = [
-                    {社區名稱: "測試-台北101", 成交均價: "200萬", 近期最高: "250萬", 緯度: 25.0339, 經度: 121.5644, 偵測半徑: 5000, 預約連結: "#"},
-                    {社區名稱: "測試-帝寶", 成交均價: "250萬", 近期最高: "280萬", 緯度: 25.0387, 經度: 121.5376, 偵測半徑: 5000, 預約連結: "#"}
+            if(googleSheetUrl.includes('https://docs.google.com/spreadsheets/d/e/2PACX-1vQiOy1LhV1v9NiLONMNOnK9ttdFlzGp7_P6lRJTfcTj3i8qRaChlJNE0IFpv41FiHdhOSoHdLC23Kyr/pub?output=csv')) {
+                alert('請記得修改程式碼中的 Google Sheet 和 Form 設定喔！');
+                 allCommunities = [
+                    {社區名稱: "測試-台北101", 成交均價: "200萬", 近期最高: "250萬", 緯度: 25.0339, 經度: 121.5644, 偵測半徑: 5000}
                 ];
                 renderManualList();
                 return;
             }
-
             Papa.parse(googleSheetUrl, {
-                download: true,
-                header: true,
+                download: true, header: true,
                 complete: function(results) {
                     allCommunities = results.data;
-                    console.log("資料庫載入成功", allCommunities);
                     renderManualList();
-                },
-                error: function(err) {
-                    alert("資料載入失敗，請檢查 Google Sheet 連結設定");
                 }
             });
         };
@@ -109,47 +176,30 @@
         function startGPS() {
             document.getElementById('status-area').classList.add('hidden');
             document.getElementById('loading').classList.remove('hidden');
-
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
-            } else {
-                alert("您的瀏覽器不支援定位");
-                showManualList();
-            }
+            if (navigator.geolocation) navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
+            else { alert("不支援定位"); showManualList(); }
         }
 
         function successGPS(position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
-            
-            // 尋找最近且在半徑內的社區
-            let found = null;
-            let minDist = Infinity;
+            let found = null; let minDist = Infinity;
 
             allCommunities.forEach(item => {
                 if(!item['緯度']) return;
-                const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000; // 轉公尺
-                const radius = parseFloat(item['偵測半徑']) || 100; // 預設100公尺
-
-                if (dist < radius && dist < minDist) {
-                    minDist = dist;
-                    found = item;
-                }
+                const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
+                const radius = parseFloat(item['偵測半徑']) || 100;
+                if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
 
             document.getElementById('loading').classList.add('hidden');
-            
-            if (found) {
-                showResult(found);
-            } else {
-                alert("附近沒有符合的社區資料，請手動選擇");
-                showManualList();
-            }
+            if (found) showResult(found);
+            else { alert("附近無資料，請手動選擇"); showManualList(); }
         }
 
         function errorGPS() {
             document.getElementById('loading').classList.add('hidden');
-            alert("無法取得位置 (請確保已允許定位權限)");
+            alert("無法定位，請手動選擇");
             showManualList();
         }
 
@@ -158,10 +208,14 @@
             document.getElementById('manual-area').classList.add('hidden');
             document.getElementById('result-area').classList.remove('hidden');
 
+            currentCommunityName = data['社區名稱']; // 記住現在選的社區
             document.getElementById('res-name').innerText = data['社區名稱'];
             document.getElementById('res-price').innerText = data['成交均價'];
             document.getElementById('res-max').innerText = data['近期最高'];
-            document.getElementById('res-link').href = data['預約連結'];
+            
+            // 自動把社區名稱填入表單隱藏欄位
+            document.getElementById('input-community').value = currentCommunityName;
+            document.getElementById('modal-community-name').innerText = currentCommunityName;
         }
 
         function showManualList() {
@@ -175,8 +229,7 @@
             allCommunities.forEach((item, index) => {
                 if(!item['社區名稱']) return;
                 const option = document.createElement('option');
-                option.value = index;
-                option.text = item['社區名稱'];
+                option.value = index; option.text = item['社區名稱'];
                 select.appendChild(option);
             });
         }
@@ -186,17 +239,32 @@
             showResult(allCommunities[index]);
         }
 
-        // 計算距離公式 (Haversine formula)
+        // Modal 相關功能
+        function openModal() {
+            document.body.classList.add('modal-active');
+            document.getElementById('form-modal').classList.remove('opacity-0', 'pointer-events-none');
+        }
+        function closeModal() {
+            document.body.classList.remove('modal-active');
+            document.getElementById('form-modal').classList.add('opacity-0', 'pointer-events-none');
+            // 重置表單狀態，方便下次開啟
+            setTimeout(() => {
+                document.getElementById('form-content').classList.remove('hidden');
+                document.getElementById('success-msg').classList.add('hidden');
+                submitted = false;
+            }, 300);
+        }
+        function showSuccess() {
+            document.getElementById('form-content').classList.add('hidden');
+            document.getElementById('success-msg').classList.remove('hidden');
+            document.getElementById('google-form').reset(); // 清空表單
+        }
+
+        // 距離公式
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
-            var R = 6371; 
-            var dLat = deg2rad(lat2-lat1);  
-            var dLon = deg2rad(lon2-lon1); 
-            var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
-                    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
-                    Math.sin(dLon/2) * Math.sin(dLon/2); 
-            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-            var d = R * c; 
-            return d;
+            var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1);
+            var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2);
+            var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c;
         }
         function deg2rad(deg) { return deg * (Math.PI/180); }
     </script>
