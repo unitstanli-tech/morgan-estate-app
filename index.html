@@ -256,4 +256,332 @@
             </div>
 
             <!-- Success Message -->
-            <div id="success-msg" class="hidden py
+            <div id="success-msg" class="hidden py-12 px-6 text-center">
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4 animate-bounce">
+                    <i class="fas fa-check text-2xl text-green-600"></i>
+                </div>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">需求已送出！</h3>
+                <p class="text-sm text-slate-500 mb-8">我已收到您的訊息，會盡快聯繫您。</p>
+                <button onclick="closeModal()" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition">關閉視窗</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==============================================
+        // 🔴 個人資料設定區
+        // ==============================================
+        const agentName     = "詹異仙 Morgan";           
+        const agentLicense  = "(105)新北經字第003265號"; 
+        const agentPhone    = "0937879822";        
+        const agentLineLink = "https://line.me/ti/p/Ond6QZ5b6L"; 
+        const agentPhoto    = "https://duk.tw/1YUaIg.jpg"; 
+
+        // ==============================================
+        // 🟢 資料庫連線設定區
+        // ==============================================
+        const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE'; 
+        
+        // 1. 社區行情表
+        const communityGid = '0'; 
+        
+        // 2. 待售物件表
+        const objectsGid = '1268616867'; 
+
+        // Google Form 設定
+        const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
+        const entryId_Name  = 'entry.1415901609';
+        const entryId_Phone = 'entry.1276512542';
+        const entryId_Line  = 'entry.1641674903';
+        const entryId_Comm  = 'entry.1383846499'; 
+
+        // ==============================================
+
+        // UI Initialization
+        document.getElementById('agent-name').innerText = agentName;
+        document.getElementById('agent-license').innerText = agentLicense;
+        document.getElementById('agent-photo').src = agentPhoto;
+        document.getElementById('btn-call').href = "tel:" + agentPhone;
+        document.getElementById('btn-line').href = agentLineLink;
+
+        document.getElementById('google-form').action = formActionURL;
+        document.getElementById('input-name').name = entryId_Name;
+        document.getElementById('input-phone').name = entryId_Phone;
+        document.getElementById('input-line').name = entryId_Line;
+        document.getElementById('input-community').name = entryId_Comm;
+
+        let allCommunities = [];
+        let allObjects = [];
+        let submitted = false;
+        let isDataLoaded = { comm: false, obj: false };
+
+        window.onload = function() {
+            loadData();
+        };
+
+        function loadData() {
+            const commUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&gid=${communityGid}`;
+            const objUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&gid=${objectsGid}`;
+
+            Papa.parse(commUrl, {
+                download: true, header: true,
+                complete: function(results) { 
+                    allCommunities = results.data;
+                    isDataLoaded.comm = true;
+                    checkLoadStatus();
+                },
+                error: function() { console.log("社區資料載入失敗"); isDataLoaded.comm = true; checkLoadStatus(); }
+            });
+
+            Papa.parse(objUrl, {
+                download: true, header: true,
+                complete: function(results) {
+                    allObjects = results.data;
+                    // 檢查欄位，避免因為空白鍵導致讀不到
+                    if(allObjects.length > 0) {
+                         // 簡單的欄位正規化 (去除標題前後空白)
+                         const keys = Object.keys(allObjects[0]);
+                         console.log("物件表欄位偵測:", keys);
+                    }
+                    isDataLoaded.obj = true;
+                    checkLoadStatus();
+                },
+                error: function() { 
+                    console.log("物件表讀取失敗"); 
+                    allObjects = []; 
+                    isDataLoaded.obj = true; 
+                    checkLoadStatus();
+                }
+            });
+        }
+
+        function checkLoadStatus() {
+            if(isDataLoaded.comm && isDataLoaded.obj) {
+                document.getElementById('loading-progress').innerText = "資料整理完畢";
+                setTimeout(() => {
+                    document.getElementById('init-loader').classList.add('hidden');
+                    document.getElementById('main-buttons').classList.remove('hidden');
+                    renderManualList();
+                }, 500);
+            }
+        }
+
+        function startGPS() {
+            document.getElementById('main-buttons').classList.add('hidden');
+            document.getElementById('gps-loading').classList.remove('hidden');
+            if (navigator.geolocation) navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
+            else { alert("瀏覽器不支援定位"); showManualList(); }
+        }
+
+        function successGPS(position) {
+            const userLat = position.coords.latitude;
+            const userLng = position.coords.longitude;
+            let found = null; let minDist = Infinity;
+            
+            allCommunities.forEach(item => {
+                if(!item['緯度'] || !item['社區名稱']) return;
+                const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
+                const radius = parseFloat(item['偵測半徑']) || 100;
+                if (dist < radius && dist < minDist) { minDist = dist; found = item; }
+            });
+            
+            document.getElementById('gps-loading').classList.add('hidden');
+            if (found) showResult(found);
+            else { alert("附近無符合資料，請手動選擇"); showManualList(); }
+        }
+
+        function errorGPS() {
+            document.getElementById('gps-loading').classList.add('hidden');
+            alert("無法取得位置，請手動選擇");
+            showManualList();
+        }
+
+        function showManualList() {
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.remove('hidden');
+        }
+
+        function renderManualList() {
+            const select = document.getElementById('manual-select');
+            select.innerHTML = '<option value="">-- 請選擇社區 --</option>';
+            const cleanList = allCommunities.filter(i => i['社區名稱']);
+            cleanList.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item['社區名稱'];
+                option.text = item['社區名稱'];
+                select.appendChild(option);
+            });
+        }
+
+        function manualSelect(name) {
+            if(!name) return;
+            const item = allCommunities.find(i => i['社區名稱'] === name);
+            if(item) showResult(item);
+        }
+
+        function resetApp() {
+            document.getElementById('result-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.add('hidden');
+            document.getElementById('status-area').classList.remove('hidden');
+            document.getElementById('main-buttons').classList.remove('hidden');
+            document.getElementById('gps-loading').classList.add('hidden');
+            document.getElementById('manual-select').value = "";
+        }
+
+        function showResult(data) {
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.add('hidden');
+            document.getElementById('result-area').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+
+            const commName = data['社區名稱'];
+            document.getElementById('res-name').innerText = commName;
+            document.getElementById('res-price').innerText = data['成交均價'] || "-";
+            document.getElementById('res-max').innerText = data['近期最高'] || "-";
+            
+            let imgUrl = data['圖片連結'];
+            if(imgUrl && imgUrl.includes('drive.google.com')) {
+                const idMatch = imgUrl.match(/\/d\/([-\w]{25,})/) || imgUrl.match(/id=([-\w]{25,})/);
+                if(idMatch) imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[1];
+            }
+            document.getElementById('res-img').src = imgUrl || '';
+
+            const matchedObjects = allObjects.filter(obj => obj['社區名稱'] === commName);
+            renderObjects(matchedObjects, commName);
+        }
+
+        function renderObjects(objects, commName) {
+            const listContainer = document.getElementById('object-list');
+            const section = document.getElementById('objects-section');
+            const noMsg = document.getElementById('no-objects-msg');
+            const countBadge = document.getElementById('obj-count');
+
+            listContainer.innerHTML = '';
+
+            if(objects.length > 0) {
+                section.classList.remove('hidden');
+                noMsg.classList.add('hidden');
+                countBadge.innerText = objects.length + " 筆";
+
+                objects.forEach(obj => {
+                    const price = obj['總價'] || '洽詢';
+                    const layout = obj['格局'] || '';
+                    const size = obj['建坪'] ? obj['建坪'] + '坪' : '';
+                    const floor = obj['樓層'] ? obj['樓層'] : '';
+                    const title = obj['案名'] || '優質好案';
+                    
+                    // 修正：更寬容地抓取照片連結 (防止欄位有空白)
+                    // 優先抓 '照片連結'，如果沒有則抓 '照片連結 ' (含空白)，再沒有則 fallback 到空
+                    const photoLink = obj['照片連結'] || obj['照片連結 '] || '';
+
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3";
+                    
+                    // 修正邏輯：如果有連結 (無論是資料夾還是圖片)，就顯示按鈕
+                    let photoBtnHtml = '';
+                    if(photoLink && photoLink.trim().length > 5) {
+                        photoBtnHtml = `
+                            <a href="${photoLink}" target="_blank" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-1 transition">
+                                <i class="fab fa-google-drive text-sm"></i> 雲端賞屋 (照片)
+                            </a>
+                        `;
+                    } else {
+                         photoBtnHtml = `
+                            <button disabled class="flex-1 bg-slate-50 text-slate-300 text-xs font-bold py-2.5 rounded-lg cursor-not-allowed">
+                                <i class="fas fa-image"></i> 照片準備中
+                            </button>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-base mb-1">${title}</h4>
+                                <p class="text-xs text-slate-500 bg-slate-50 inline-block px-2 py-1 rounded">
+                                    ${size} • ${layout} • ${floor}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-red-500 whitespace-nowrap">${price} <span class="text-xs text-slate-400 font-normal">萬</span></p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-1">
+                            ${photoBtnHtml}
+                            <button onclick="openModal('預約看屋：${commName} - ${title}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-1 transition shadow-md shadow-blue-100">
+                                <i class="fas fa-calendar-check"></i> 預約看屋
+                            </button>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+
+            } else {
+                section.classList.add('hidden');
+                noMsg.classList.remove('hidden');
+            }
+        }
+
+        function calculateMortgage() {
+            const price = parseFloat(document.getElementById('calc-price').value);
+            const years = 30; 
+            const rate = 2.2 / 100; 
+            if(!price) {
+                document.getElementById('calc-result').innerText = "請輸入總價";
+                return;
+            }
+            const loanAmount = price * 10000 * 0.8; 
+            const monthRate = rate / 12;
+            const totalMonths = years * 12;
+            const monthlyPay = (loanAmount * monthRate * Math.pow(1 + monthRate, totalMonths)) / (Math.pow(1 + monthRate, totalMonths) - 1);
+            document.getElementById('calc-result').innerText = "約 " + Math.round(monthlyPay).toLocaleString() + " 元/月";
+        }
+
+        const modal = document.getElementById('form-modal');
+        const modalContent = document.getElementById('form-content');
+        const successMsg = document.getElementById('success-msg');
+
+        function openModal(subject) {
+            if(!subject) subject = "一般諮詢";
+            document.body.classList.add('modal-active');
+            document.getElementById('input-community').value = subject;
+            document.getElementById('modal-target-name').innerText = subject;
+            document.getElementById('input-needs').value = ""; // 清空需求
+            
+            modal.classList.add('active');
+        }
+
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.classList.remove('modal-active');
+            setTimeout(() => {
+                modalContent.classList.remove('hidden');
+                successMsg.classList.add('hidden');
+                submitted = false;
+            }, 300);
+        }
+
+        // 處理表單提交：合併需求到社區欄位
+        function handleFormSubmit() {
+            const originalComm = document.getElementById('input-community').value;
+            const needs = document.getElementById('input-needs').value;
+            
+            if(needs && needs.trim() !== "") {
+                // 將需求附加在傳送的物件名稱後面
+                document.getElementById('input-community').value = `${originalComm} (備註需求：${needs})`;
+            }
+            
+            submitted = true;
+        }
+
+        function showSuccess() {
+            modalContent.classList.add('hidden');
+            successMsg.classList.remove('hidden');
+            document.getElementById('google-form').reset();
+        }
+
+        function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) { var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
+        function deg2rad(deg) { return deg * (Math.PI/180); }
+
+    </script>
+</body>
+</html>
