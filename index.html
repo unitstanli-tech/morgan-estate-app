@@ -225,8 +225,7 @@
                     </div>
                 </div>
 
-                <!-- 修改重點：增加 onsubmit 事件處理 -->
-                <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="handleFormSubmit();">
+                <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">您的稱呼 <span class="text-red-500">*</span></label>
@@ -240,13 +239,14 @@
                             <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">LINE ID <span class="text-slate-300 font-normal">(選填)</span></label>
                             <input type="text" id="input-line" placeholder="方便加Line傳送資料" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition text-sm">
                         </div>
-                        <!-- 新增的需求欄位 -->
+                        <!-- 新增需求欄位：對應到新的 Google Form 欄位 -->
                         <div>
                             <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">您的需求 / 備註 <span class="text-slate-300 font-normal">(選填)</span></label>
-                            <textarea id="input-needs" rows="2" placeholder="例如：希望有車位、喜歡高樓層..." class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm"></textarea>
+                            <textarea id="input-needs" rows="3" placeholder="例如：想找有車位的、預算約1500萬..." class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm"></textarea>
                         </div>
                     </div>
                     
+                    <!-- 這裡是隱藏的社區名稱欄位，系統會自動填入，不需要使用者填寫 -->
                     <input type="hidden" id="input-community" value="">
                     
                     <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-6 hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
@@ -290,10 +290,12 @@
 
         // Google Form 設定
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
+        
         const entryId_Name  = 'entry.1415901609';
         const entryId_Phone = 'entry.1276512542';
         const entryId_Line  = 'entry.1641674903';
         const entryId_Comm  = 'entry.1383846499'; 
+        const entryId_Needs = 'entry.1763103624'; 
 
         // ==============================================
 
@@ -309,6 +311,8 @@
         document.getElementById('input-phone').name = entryId_Phone;
         document.getElementById('input-line').name = entryId_Line;
         document.getElementById('input-community').name = entryId_Comm;
+        // 設定新欄位的 ID
+        document.getElementById('input-needs').name = entryId_Needs;
 
         let allCommunities = [];
         let allObjects = [];
@@ -337,9 +341,7 @@
                 download: true, header: true,
                 complete: function(results) {
                     allObjects = results.data;
-                    // 檢查欄位，避免因為空白鍵導致讀不到
                     if(allObjects.length > 0) {
-                         // 簡單的欄位正規化 (去除標題前後空白)
                          const keys = Object.keys(allObjects[0]);
                          console.log("物件表欄位偵測:", keys);
                     }
@@ -470,14 +472,11 @@
                     const floor = obj['樓層'] ? obj['樓層'] : '';
                     const title = obj['案名'] || '優質好案';
                     
-                    // 修正：更寬容地抓取照片連結 (防止欄位有空白)
-                    // 優先抓 '照片連結'，如果沒有則抓 '照片連結 ' (含空白)，再沒有則 fallback 到空
                     const photoLink = obj['照片連結'] || obj['照片連結 '] || '';
 
                     const card = document.createElement('div');
                     card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3";
                     
-                    // 修正邏輯：如果有連結 (無論是資料夾還是圖片)，就顯示按鈕
                     let photoBtnHtml = '';
                     if(photoLink && photoLink.trim().length > 5) {
                         photoBtnHtml = `
@@ -545,7 +544,7 @@
             document.body.classList.add('modal-active');
             document.getElementById('input-community').value = subject;
             document.getElementById('modal-target-name').innerText = subject;
-            document.getElementById('input-needs').value = ""; // 清空需求
+            document.getElementById('input-needs').value = ""; 
             
             modal.classList.add('active');
         }
@@ -558,19 +557,6 @@
                 successMsg.classList.add('hidden');
                 submitted = false;
             }, 300);
-        }
-
-        // 處理表單提交：合併需求到社區欄位
-        function handleFormSubmit() {
-            const originalComm = document.getElementById('input-community').value;
-            const needs = document.getElementById('input-needs').value;
-            
-            if(needs && needs.trim() !== "") {
-                // 將需求附加在傳送的物件名稱後面
-                document.getElementById('input-community').value = `${originalComm} (備註需求：${needs})`;
-            }
-            
-            submitted = true;
         }
 
         function showSuccess() {
