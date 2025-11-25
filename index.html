@@ -2,217 +2,307 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="referrer" content="no-referrer">
-    <title>社區行情即時查</title>
+    <title>社區行情 & 雲端看屋戰情室</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.0/papaparse.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" />
     <style>
-        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f0f2f5; }
-        .loader { border: 4px solid #f3f3f3; border-top: 4px solid #3b82f6; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto; }
+        body { font-family: 'Microsoft JhengHei', sans-serif; background-color: #f0f2f5; -webkit-tap-highlight-color: transparent; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #3b82f6; border-radius: 50%; width: 24px; height: 24px; animation: spin 1s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        .modal { transition: opacity 0.25s ease; }
-        body.modal-active { overflow-x: hidden; overflow-y: visible !important; }
-        .img-container { height: 220px; background-color: #e5e7eb; display: flex; align-items: center; justify-content: center; overflow: hidden; position: relative; }
-        .img-container img { width: 100%; height: 100%; object-fit: cover; }
-        .agent-header { background: linear-gradient(to right, #ffffff, #f9fafb); }
+        
+        /* Modal Transitions */
+        .modal { transition: opacity 0.3s ease, visibility 0.3s ease; opacity: 0; visibility: hidden; }
+        .modal.active { opacity: 1; visibility: visible; }
+        .modal-content { transform: scale(0.95); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        .modal.active .modal-content { transform: scale(1); }
+        
+        body.modal-active { overflow: hidden; }
+        
+        .img-container { height: 200px; background-color: #e5e7eb; position: relative; overflow: hidden; }
+        .img-container img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s ease; }
+        
+        .glass-header { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(0,0,0,0.05); }
+        
+        /* Custom Scrollbar for horizontal lists if needed */
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
     </style>
 </head>
-<body class="flex flex-col items-center min-h-screen pb-10">
+<body class="flex flex-col items-center min-h-screen pb-20 text-slate-800">
 
-    <!-- 1. 專業房仲名片區 -->
-    <div class="w-full bg-white shadow-md z-20 agent-header sticky top-0">
-        <div class="max-w-md mx-auto px-4 py-3 flex items-center space-x-3">
-            <div class="relative flex-shrink-0">
-                <img id="agent-photo" referrerpolicy="no-referrer" src="" alt="房仲頭像" class="w-14 h-14 rounded-full border-2 border-blue-500 object-cover p-0.5 bg-white">
-                <div class="absolute bottom-0 right-0 bg-green-500 w-3.5 h-3.5 rounded-full border-2 border-white"></div>
+    <!-- 1. 專業房仲名片區 (Sticky Header) -->
+    <div class="w-full z-30 glass-header sticky top-0 shadow-sm">
+        <div class="max-w-md mx-auto px-4 py-2 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="relative">
+                    <img id="agent-photo" referrerpolicy="no-referrer" src="" alt="Agent" class="w-12 h-12 rounded-full border border-gray-200 object-cover p-0.5 bg-white">
+                    <div class="absolute bottom-0 right-0 bg-green-500 w-3 h-3 rounded-full border-2 border-white"></div>
+                </div>
+                <div>
+                    <h2 class="text-base font-bold text-slate-800 flex items-center">
+                        <span id="agent-name">載入中...</span>
+                        <i class="fas fa-check-circle text-blue-500 ml-1 text-xs"></i>
+                    </h2>
+                    <p class="text-[10px] text-slate-500 bg-slate-100 px-1.5 py-0.5 rounded inline-block">證號：<span id="agent-license">...</span></p>
+                </div>
             </div>
-            <div class="flex-1 min-w-0">
-                <div class="flex items-center">
-                    <h2 id="agent-name" class="text-lg font-bold text-gray-800 truncate">載入中...</h2>
-                    <span class="ml-2 text-[10px] bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full font-bold flex-shrink-0">專業認證</span>
-                </div>
-                <p class="text-xs text-gray-500 truncate mt-0.5">證號：<span id="agent-license">...</span></p>
-                <div class="mt-2 flex space-x-2">
-                    <a id="btn-call" href="#" class="bg-gray-100 text-gray-700 px-3 py-1 rounded text-xs font-bold flex items-center hover:bg-gray-200 transition">
-                        <i class="fas fa-phone-alt mr-1.5 text-blue-600"></i> 致電
-                    </a>
-                    <a id="btn-line" href="#" target="_blank" class="bg-[#06c755] text-white px-3 py-1 rounded text-xs font-bold flex items-center hover:bg-[#05b34c] transition shadow-sm">
-                        <i class="fab fa-line mr-1.5 text-lg"></i> 加LINE
-                    </a>
-                </div>
+            <div class="flex space-x-2">
+                <a id="btn-call" href="#" class="w-9 h-9 rounded-full bg-slate-100 flex items-center justify-center text-slate-600 hover:bg-blue-50 hover:text-blue-600 transition">
+                    <i class="fas fa-phone-alt text-sm"></i>
+                </a>
+                <a id="btn-line" href="#" target="_blank" class="w-9 h-9 rounded-full bg-[#06c755]/10 flex items-center justify-center text-[#06c755] hover:bg-[#06c755] hover:text-white transition">
+                    <i class="fab fa-line text-lg"></i>
+                </a>
             </div>
         </div>
     </div>
 
     <!-- 主內容區 -->
-    <div class="w-full max-w-md px-4 mt-4">
+    <div class="w-full max-w-md px-4 mt-4 flex-1">
         
-        <div class="text-center mb-5 mt-2">
-            <h1 class="text-xl font-bold text-gray-800">🏠 社區行情快搜</h1>
-            <p class="text-gray-400 text-xs mt-1">走到哪查到哪 • 實價登錄不求人</p>
+        <div class="text-center mb-6">
+            <h1 class="text-xl font-extrabold text-slate-800 tracking-tight">🔍 社區行情 & 雲端物件</h1>
+            <p class="text-slate-400 text-xs mt-1">實價登錄分析 • 隱藏房源型錄</p>
         </div>
 
-        <!-- 狀態與按鈕區 -->
-        <div id="status-area" class="bg-white rounded-xl shadow-lg p-6 text-center border border-gray-100 min-h-[200px] flex flex-col justify-center">
-            
-            <!-- A. 初始化載入畫面 (預設顯示) -->
+        <!-- A. 初始載入 & 按鈕區 -->
+        <div id="status-area" class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 text-center min-h-[220px] flex flex-col justify-center relative overflow-hidden">
+            <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-400 via-blue-500 to-blue-600"></div>
+
+            <!-- Loading -->
             <div id="init-loader">
-                <div class="loader mb-3"></div>
-                <p class="text-gray-500 font-bold animate-pulse">正在下載房市資料庫...</p>
-                <p class="text-xs text-gray-400 mt-2">請稍候，系統連線中</p>
+                <div class="loader mb-3 border-t-blue-600"></div>
+                <p class="text-slate-600 font-bold text-sm animate-pulse">正在連線房市資料庫...</p>
+                <p id="loading-progress" class="text-xs text-slate-400 mt-1">準備下載資料</p>
             </div>
 
-            <!-- B. 功能按鈕 (預設隱藏，下載完才顯示) -->
-            <div id="main-buttons" class="hidden space-y-4">
-                <button onclick="startGPS()" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-4 px-4 rounded-xl shadow-lg text-lg flex items-center justify-center gap-2 transform active:scale-95 transition-all">
-                    <i class="fas fa-map-marker-alt animate-bounce"></i> 顯示此地行情
+            <!-- Main Buttons -->
+            <div id="main-buttons" class="hidden space-y-3">
+                <button onclick="startGPS()" class="w-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white font-bold py-3.5 px-4 rounded-xl shadow-lg shadow-blue-200 text-base flex items-center justify-center gap-2 transform active:scale-95 transition-all">
+                    <i class="fas fa-location-arrow animate-bounce"></i> 定位查詢此地行情
                 </button>
-                <button onclick="showManualList()" class="w-full bg-white border-2 border-gray-200 text-gray-600 font-bold py-3 px-4 rounded-xl hover:bg-gray-50 flex items-center justify-center gap-2 transition">
-                    <i class="fas fa-list"></i> 手動選擇社區
+                <button onclick="showManualList()" class="w-full bg-white border border-slate-200 text-slate-600 font-bold py-3 px-4 rounded-xl hover:bg-slate-50 flex items-center justify-center gap-2 transition active:scale-95">
+                    <i class="fas fa-list-ul"></i> 手動選擇社區
                 </button>
-                <p class="text-xs text-green-600 font-bold"><i class="fas fa-check-circle"></i> 資料庫已更新</p>
+                <div class="mt-3 flex items-center justify-center gap-1 text-[10px] text-green-600 bg-green-50 py-1 px-3 rounded-full w-fit mx-auto">
+                    <i class="fas fa-database"></i> 資料庫已更新完成
+                </div>
             </div>
 
-            <!-- C. GPS 分析中畫面 -->
+            <!-- GPS Loading -->
             <div id="gps-loading" class="hidden">
-                <div class="loader mb-3"></div>
-                <p class="text-sm text-gray-500 mt-2">衛星定位分析中...</p>
+                <div class="loader border-t-blue-500 mb-2"></div>
+                <p class="text-sm text-slate-500">正在分析您的位置...</p>
             </div>
         </div>
 
-        <!-- 結果顯示區 -->
-        <div id="result-area" class="hidden bg-white rounded-xl shadow-lg overflow-hidden mt-4 border border-gray-100">
-            <div class="img-container">
-                <!-- 這裡加上 onerror 處理，如果圖片壞掉會顯示預設圖 -->
-                <img id="res-img" referrerpolicy="no-referrer" src="" alt="社區外觀" onerror="this.onerror=null;this.src='https://placehold.co/600x400/e2e8f0/94a3b8?text=No+Image';">
-                <div class="absolute bottom-0 left-0 bg-gradient-to-t from-black/80 to-transparent w-full p-4 pt-12">
-                    <h2 id="res-name" class="text-2xl font-bold text-white shadow-sm leading-tight">社區名稱</h2>
+        <!-- B. 手動選擇區 -->
+        <div id="manual-area" class="hidden bg-white rounded-2xl shadow-sm p-6 mt-4 border border-slate-100">
+            <p class="text-sm text-slate-700 mb-3 font-bold flex items-center">
+                <i class="fas fa-search mr-2 text-blue-500"></i>請選擇社區：
+            </p>
+            <div class="relative">
+                <select id="manual-select" class="w-full p-3 pl-4 pr-10 appearance-none border border-slate-200 rounded-xl bg-slate-50 text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition" onchange="manualSelect(this.value)">
+                    <option value="">載入中...</option>
+                </select>
+                <div class="absolute right-3 top-3.5 pointer-events-none text-slate-400">
+                    <i class="fas fa-chevron-down text-xs"></i>
+                </div>
+            </div>
+            <button onclick="resetApp()" class="w-full mt-4 text-slate-400 text-xs hover:text-slate-600">返回首頁</button>
+        </div>
+
+        <!-- C. 結果顯示區 (核心) -->
+        <div id="result-area" class="hidden space-y-4 mt-4">
+            
+            <!-- C-1. 社區基本資料卡 -->
+            <div class="bg-white rounded-2xl shadow-lg overflow-hidden border border-slate-100">
+                <div class="img-container group">
+                    <img id="res-img" referrerpolicy="no-referrer" src="" alt="社區外觀" onerror="this.onerror=null;this.src='https://placehold.co/600x400/f1f5f9/94a3b8?text=No+Image';">
+                    <div class="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-transparent to-transparent"></div>
+                    <div class="absolute bottom-0 left-0 w-full p-5 text-white">
+                        <span class="bg-blue-600 text-[10px] font-bold px-2 py-0.5 rounded mb-1 inline-block shadow-sm">已更新實價</span>
+                        <h2 id="res-name" class="text-2xl font-bold shadow-sm leading-tight">社區名稱</h2>
+                    </div>
+                </div>
+
+                <div class="p-5">
+                    <!-- 價格區塊 -->
+                    <div class="flex items-center justify-between mb-6">
+                        <div class="text-center w-1/2 border-r border-slate-100 pr-2">
+                            <p class="text-xs text-slate-400 mb-1">近半年成交均價</p>
+                            <p class="text-xl font-bold text-red-500 flex items-end justify-center gap-0.5">
+                                <span id="res-price">-</span> <span class="text-sm text-red-400 font-normal mb-1">萬/坪</span>
+                            </p>
+                        </div>
+                        <div class="text-center w-1/2 pl-2">
+                            <p class="text-xs text-slate-400 mb-1">近期最高成交</p>
+                            <p class="text-xl font-bold text-slate-700 flex items-end justify-center gap-0.5">
+                                <span id="res-max">-</span> <span class="text-sm text-slate-400 font-normal mb-1">萬/坪</span>
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- 房貸試算 (收合式) -->
+                    <div class="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                        <div class="flex justify-between items-center mb-3">
+                            <h3 class="text-xs font-bold text-slate-600 flex items-center">
+                                <i class="fas fa-calculator mr-1.5 text-blue-500"></i>房貸試算 (2.2% / 30年)
+                            </h3>
+                        </div>
+                        <div class="flex gap-2 text-sm">
+                            <input type="number" id="calc-price" placeholder="輸入總價(萬)" class="w-full p-2 border border-slate-200 rounded-lg focus:outline-none focus:border-blue-500 bg-white text-center" oninput="calculateMortgage()">
+                        </div>
+                        <div class="flex justify-between items-end mt-2 pt-2 border-t border-slate-200 border-dashed">
+                            <span class="text-xs text-slate-500">預估月付(本息)：</span>
+                            <span id="calc-result" class="text-base font-bold text-blue-600">請輸入總價</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
-            <div class="p-5">
-                <div class="grid grid-cols-2 gap-3 mb-5">
-                    <div class="bg-red-50 p-3 rounded-lg text-center border border-red-100">
-                        <p class="text-xs text-gray-500 mb-1">近半年均價</p>
-                        <p id="res-price" class="text-lg font-bold text-red-600">-</p>
-                    </div>
-                    <div class="bg-gray-50 p-3 rounded-lg text-center border border-gray-100">
-                        <p class="text-xs text-gray-500 mb-1">近期最高</p>
-                        <p id="res-max" class="text-lg font-bold text-gray-800">-</p>
-                    </div>
-                </div>
-
-                <div class="bg-blue-50 rounded-lg p-4 mb-5 border border-blue-100">
-                    <h3 class="text-xs font-bold text-blue-800 mb-2 flex items-center uppercase tracking-wide">
-                        <i class="fas fa-calculator mr-2"></i>房貸試算 (利率2.2% / 8成)
+            <!-- C-2. 雲端看屋戰情室 (整合點子一) -->
+            <div id="objects-section" class="hidden">
+                <div class="flex items-center justify-between mb-3 px-1">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center">
+                        <i class="fas fa-fire text-red-500 mr-2"></i>本社區待售精選
                     </h3>
-                    <div class="flex gap-2 text-sm mb-3">
-                        <input type="number" id="calc-price" placeholder="輸入總價(萬)" class="w-2/3 p-2 border border-blue-200 rounded focus:outline-none focus:border-blue-500" oninput="calculateMortgage()">
-                        <select id="calc-years" class="w-1/3 p-2 border border-blue-200 rounded text-gray-700" onchange="calculateMortgage()">
-                            <option value="30">30年</option>
-                            <option value="40">40年</option>
-                            <option value="20">20年</option>
-                        </select>
-                    </div>
-                    <div class="flex justify-between items-end border-t border-blue-200 pt-2">
-                        <span class="text-xs text-blue-600">預估月付(本息)：</span>
-                        <span id="calc-result" class="text-lg font-bold text-blue-800">請輸入總價</span>
-                    </div>
+                    <span class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold" id="obj-count">0 筆</span>
                 </div>
-
-                <button onclick="openModal()" class="w-full bg-[#06c755] hover:bg-[#05b34c] text-white text-center font-bold py-3.5 rounded-lg shadow-md animate-pulse flex items-center justify-center gap-2 transition">
-                    <i class="fas fa-comments"></i> 索取隱藏名單 / 線上諮詢
-                </button>
-                <button onclick="location.reload()" class="mt-4 w-full text-gray-400 text-sm hover:text-gray-600">重新查詢</button>
+                
+                <div id="object-list" class="space-y-3">
+                    <!-- JS 會自動產生卡片放在這裡 -->
+                </div>
             </div>
+
+            <!-- C-3. 查無物件時顯示 -->
+            <div id="no-objects-msg" class="hidden bg-white p-6 rounded-2xl shadow-sm text-center border border-dashed border-slate-300">
+                <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <i class="fas fa-home text-xl"></i>
+                </div>
+                <p class="text-sm font-bold text-slate-600">目前本社區尚無公開物件</p>
+                <p class="text-xs text-slate-400 mb-4">可能有「隱藏版」尚未上架</p>
+                <button onclick="openModal('索取隱藏名單')" class="bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-lg hover:bg-slate-700 transition">
+                    詢問隱藏名單
+                </button>
+            </div>
+
+            <div class="h-4"></div> <!-- Spacer -->
+
+            <!-- 底部操作 -->
+            <button onclick="openModal('一般諮詢')" class="w-full bg-[#06c755] hover:bg-[#05b34c] text-white font-bold py-4 rounded-xl shadow-lg shadow-green-100 flex items-center justify-center gap-2 transition active:scale-95">
+                <i class="fas fa-comments text-lg"></i> Line 線上專人諮詢
+            </button>
+            <button onclick="resetApp()" class="w-full py-3 text-slate-400 text-xs hover:text-slate-600">重新查詢</button>
         </div>
 
-        <div id="manual-area" class="hidden bg-white rounded-xl shadow-lg p-6 mt-4">
-            <p class="text-sm text-gray-600 mb-3 font-bold flex items-center"><i class="fas fa-search-location mr-2"></i>請選擇您所在的社區：</p>
-            <select id="manual-select" class="w-full p-3 border border-gray-300 rounded-lg mb-4 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-blue-500" onchange="manualSelect(this.value)">
-                <option value="">-- 請先等待資料下載 --</option>
-            </select>
-            <button onclick="location.reload()" class="w-full text-gray-500 text-sm underline">返回首頁</button>
-        </div>
     </div>
 
-    <div class="mt-8 text-center text-xs text-gray-300 pb-4">
-        System powered by Morgan</span>
+    <!-- Footer -->
+    <div class="mt-auto py-6 text-center">
+        <p class="text-[10px] text-slate-300">System powered by Morgan</p>
     </div>
 
+    <!-- Hidden Iframe for Form Submission -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(submitted) {showSuccess();}"></iframe>
 
-    <!-- 模態視窗 -->
-    <div id="form-modal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-50 px-4">
-        <div class="modal-overlay absolute w-full h-full bg-gray-900 opacity-60 backdrop-blur-sm" onclick="closeModal()"></div>
-        <div class="modal-container bg-white w-full max-w-md mx-auto rounded-2xl shadow-2xl z-50 overflow-hidden transform transition-all">
-            <div class="bg-gray-50 px-6 py-4 border-b border-gray-100 flex justify-between items-center">
-                <h3 class="text-lg font-bold text-gray-800">索取隱藏名單</h3>
-                <button onclick="closeModal()" class="text-gray-400 hover:text-gray-600"><i class="fas fa-times text-xl"></i></button>
+    <!-- Modal Form -->
+    <div id="form-modal" class="modal fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div class="absolute inset-0 bg-slate-900/70 backdrop-blur-sm" onclick="closeModal()"></div>
+        <div class="modal-content bg-white w-full max-w-md rounded-2xl shadow-2xl z-50 overflow-hidden relative">
+            
+            <!-- Header -->
+            <div class="bg-slate-50 px-6 py-4 border-b border-slate-100 flex justify-between items-center">
+                <div>
+                    <h3 class="text-lg font-bold text-slate-800">線上諮詢</h3>
+                    <p class="text-[10px] text-slate-500" id="modal-subtitle">我們將盡快與您聯繫</p>
+                </div>
+                <button onclick="closeModal()" class="w-8 h-8 rounded-full bg-slate-200 text-slate-500 flex items-center justify-center hover:bg-slate-300 transition"><i class="fas fa-times"></i></button>
             </div>
-            <div class="modal-content p-6" id="form-content">
-                <p class="text-sm text-gray-600 mb-5 bg-blue-50 p-3 rounded-lg text-blue-800">
-                    <i class="fas fa-info-circle mr-1"></i>
-                    系統將傳送 <span id="modal-community-name" class="font-bold border-b-2 border-blue-200"></span> 的詳細資料給您。
-                </p>
+
+            <!-- Form Body -->
+            <div class="p-6" id="form-content">
+                <!-- Dynamic Info Box -->
+                <div class="bg-blue-50 border border-blue-100 p-3 rounded-lg mb-5 flex items-start gap-3">
+                    <i class="fas fa-info-circle text-blue-500 mt-0.5"></i>
+                    <div class="text-sm text-blue-800">
+                        <p>您正在詢問：</p>
+                        <p id="modal-target-name" class="font-bold mt-0.5 border-b border-blue-200 inline-block pb-0.5">一般諮詢</p>
+                    </div>
+                </div>
+
                 <form id="google-form" action="" method="POST" target="hidden_iframe" onsubmit="submitted=true;">
                     <div class="space-y-4">
                         <div>
-                            <label class="block text-gray-700 text-sm font-bold mb-1 ml-1">您的稱呼</label>
-                            <input type="text" id="input-name" required placeholder="例如：王先生" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">您的稱呼 <span class="text-red-500">*</span></label>
+                            <input type="text" id="input-name" required placeholder="例如：王先生" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm">
                         </div>
                         <div>
-                            <label class="block text-gray-700 text-sm font-bold mb-1 ml-1">手機號碼</label>
-                            <input type="tel" id="input-phone" required placeholder="09xx-xxx-xxx" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition">
+                            <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">手機號碼 <span class="text-red-500">*</span></label>
+                            <input type="tel" id="input-phone" required placeholder="09xx-xxx-xxx" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition text-sm">
                         </div>
                         <div>
-                            <label class="block text-gray-700 text-sm font-bold mb-1 ml-1">LINE ID <span class="text-gray-400 font-normal">(選填)</span></label>
-                            <input type="text" id="input-line" placeholder="方便加Line傳送資料" class="w-full p-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent transition">
+                            <label class="block text-slate-600 text-xs font-bold mb-1.5 ml-1">LINE ID <span class="text-slate-300 font-normal">(選填)</span></label>
+                            <input type="text" id="input-line" placeholder="方便加Line傳送資料" class="w-full p-3 bg-white border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500/20 focus:border-green-500 transition text-sm">
                         </div>
                     </div>
+                    <!-- Hidden field to store what they are asking about -->
                     <input type="hidden" id="input-community" value="">
-                    <button type="submit" class="w-full bg-blue-600 text-white font-bold p-3.5 rounded-lg mt-6 hover:bg-blue-700 shadow-lg transition flex items-center justify-center gap-2">
-                        <i class="fas fa-paper-plane"></i> 立即送出索取
+                    
+                    <button type="submit" class="w-full bg-blue-600 text-white font-bold py-3.5 rounded-xl mt-6 hover:bg-blue-700 shadow-lg shadow-blue-200 transition flex items-center justify-center gap-2">
+                        <i class="fas fa-paper-plane"></i> 送出詢問
                     </button>
                 </form>
             </div>
+
+            <!-- Success Message -->
             <div id="success-msg" class="hidden py-12 px-6 text-center">
-                <div class="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100 mb-6 animate-pulse">
-                    <i class="fas fa-check text-4xl text-green-600"></i>
+                <div class="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-4 animate-bounce">
+                    <i class="fas fa-check text-2xl text-green-600"></i>
                 </div>
-                <h3 class="text-2xl font-bold text-gray-900 mb-2">需求已送出！</h3>
-                <p class="text-gray-500 mb-8">我已收到您的訊息，會盡快聯繫您。</p>
-                <button onclick="closeModal()" class="w-full bg-gray-100 text-gray-700 font-bold py-3 rounded-lg hover:bg-gray-200 transition">關閉視窗</button>
+                <h3 class="text-xl font-bold text-slate-800 mb-2">需求已送出！</h3>
+                <p class="text-sm text-slate-500 mb-8">我已收到您的訊息，會盡快聯繫您。</p>
+                <button onclick="closeModal()" class="w-full bg-slate-100 text-slate-700 font-bold py-3 rounded-xl hover:bg-slate-200 transition">關閉視窗</button>
             </div>
         </div>
     </div>
 
     <script>
         // ==============================================
-        // 🔴 請在這裡修改你的個人資料
+        // 🔴 個人資料設定區
         // ==============================================
         const agentName     = "詹異仙 Morgan";           
         const agentLicense  = "(105)新北經字第003265號"; 
         const agentPhone    = "0937879822";        
         const agentLineLink = "https://line.me/ti/p/Ond6QZ5b6L"; 
-        const agentPhoto    = "https://duk.tw/1YUaIg.jpg"; // 強烈建議改用 Imgur 連結
+        const agentPhoto    = "https://duk.tw/1YUaIg.jpg"; // 建議使用正方形圖片
 
         // ==============================================
-        // 🟢 系統 ID 設定區
+        // 🟢 資料庫連線設定區 (最重要的部分)
         // ==============================================
-        const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE';
-        const googleSheetUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv`;
+        const sheetID = '1noafiQdpemIUXx2frQliBPXmn3btLj7e0IHOGorGRwE'; // 您的 Google Sheet ID
+        
+        // 1. 社區行情表 (通常是第一張表，gid=0)
+        const communityGid = '0'; 
+        
+        // 2. 待售物件表 (⚠️請務必修改這裡⚠️)
+        // 請去 Google Sheet 新增一個分頁叫 'objects'，然後把網址列最後面的 gid=xxxx 複製過來
+        // 如果您還沒建，暫時保持 '0' 也不會報錯，只是抓不到物件
+        const objectsGid = '1268616867'; 
 
+        // Google Form 設定
         const formActionURL = 'https://docs.google.com/forms/d/e/1FAIpQLScyIbqwIXcEc1c15WxECMbo2oY43YGCpUxibED4HS2k7_VgDQ/formResponse'; 
         const entryId_Name  = 'entry.1415901609';
         const entryId_Phone = 'entry.1276512542';
         const entryId_Line  = 'entry.1641674903';
-        const entryId_Comm  = 'entry.1383846499';
+        const entryId_Comm  = 'entry.1383846499'; // 這裡我們會存入「詢問物件名稱」或「社區名稱」
 
         // ==============================================
 
+        // UI Initialization
         document.getElementById('agent-name').innerText = agentName;
         document.getElementById('agent-license').innerText = agentLicense;
         document.getElementById('agent-photo').src = agentPhoto;
@@ -226,86 +316,220 @@
         document.getElementById('input-community').name = entryId_Comm;
 
         let allCommunities = [];
+        let allObjects = [];
         let submitted = false;
+        let isDataLoaded = { comm: false, obj: false };
 
+        // App Entry Point
         window.onload = function() {
-            Papa.parse(googleSheetUrl, {
-                download: true, header: true,
-                complete: function(results) { 
-                    allCommunities = results.data; 
-                    
-                    // 資料下載完成後，切換顯示狀態
-                    console.log("資料庫下載完成，筆數：" + allCommunities.length);
-                    document.getElementById('init-loader').classList.add('hidden'); // 隱藏 Loading
-                    document.getElementById('main-buttons').classList.remove('hidden'); // 顯示按鈕
-                    
-                    renderManualList(); 
-                },
-                error: function(err) { 
-                    console.error(err); 
-                    alert("資料庫連線失敗，請檢查網路狀況");
-                }
-            });
+            loadData();
         };
 
+        function loadData() {
+            const commUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&gid=${communityGid}`;
+            const objUrl = `https://docs.google.com/spreadsheets/d/${sheetID}/gviz/tq?tqx=out:csv&gid=${objectsGid}`;
+
+            // Fetch Communities
+            Papa.parse(commUrl, {
+                download: true, header: true,
+                complete: function(results) { 
+                    allCommunities = results.data;
+                    isDataLoaded.comm = true;
+                    checkLoadStatus();
+                },
+                error: function() { console.log("社區資料載入失敗"); isDataLoaded.comm = true; checkLoadStatus(); }
+            });
+
+            // Fetch Objects (即使失敗也要繼續)
+            Papa.parse(objUrl, {
+                download: true, header: true,
+                complete: function(results) {
+                    allObjects = results.data;
+                    console.log("物件資料筆數:", allObjects.length);
+                    isDataLoaded.obj = true;
+                    checkLoadStatus();
+                },
+                error: function() { 
+                    console.log("尚未設定物件表或讀取失敗"); 
+                    allObjects = []; 
+                    isDataLoaded.obj = true; 
+                    checkLoadStatus();
+                }
+            });
+        }
+
+        function checkLoadStatus() {
+            if(isDataLoaded.comm && isDataLoaded.obj) {
+                document.getElementById('loading-progress').innerText = "資料整理完畢";
+                setTimeout(() => {
+                    document.getElementById('init-loader').classList.add('hidden');
+                    document.getElementById('main-buttons').classList.remove('hidden');
+                    renderManualList();
+                }, 500);
+            }
+        }
+
         function startGPS() {
-            // 切換成 GPS Loading
             document.getElementById('main-buttons').classList.add('hidden');
             document.getElementById('gps-loading').classList.remove('hidden');
-
             if (navigator.geolocation) navigator.geolocation.getCurrentPosition(successGPS, errorGPS);
-            else { alert("不支援定位"); showManualList(); }
+            else { alert("瀏覽器不支援定位"); showManualList(); }
         }
 
         function successGPS(position) {
             const userLat = position.coords.latitude;
             const userLng = position.coords.longitude;
             let found = null; let minDist = Infinity;
+            
             allCommunities.forEach(item => {
                 if(!item['緯度'] || !item['社區名稱']) return;
                 const dist = getDistanceFromLatLonInKm(userLat, userLng, parseFloat(item['緯度']), parseFloat(item['經度'])) * 1000;
-                const radius = parseFloat(item['偵測半徑']) || 100;
+                const radius = parseFloat(item['偵測半徑']) || 100; // Default 100m
                 if (dist < radius && dist < minDist) { minDist = dist; found = item; }
             });
             
-            document.getElementById('gps-loading').classList.add('hidden'); // 隱藏 GPS Loading
-            
+            document.getElementById('gps-loading').classList.add('hidden');
             if (found) showResult(found);
-            else { 
-                alert("附近無符合資料，請手動選擇"); 
-                showManualList(); 
-            }
+            else { alert("附近無符合資料，請手動選擇"); showManualList(); }
         }
 
         function errorGPS() {
             document.getElementById('gps-loading').classList.add('hidden');
-            alert("無法定位，請手動選擇");
+            alert("無法取得位置，請手動選擇");
             showManualList();
         }
 
+        function showManualList() {
+            document.getElementById('status-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.remove('hidden');
+        }
+
+        function renderManualList() {
+            const select = document.getElementById('manual-select');
+            select.innerHTML = '<option value="">-- 請選擇社區 --</option>';
+            // 過濾掉沒有名稱的空行
+            const cleanList = allCommunities.filter(i => i['社區名稱']);
+            cleanList.forEach((item) => {
+                const option = document.createElement('option');
+                option.value = item['社區名稱']; // Use Name as key for easier matching
+                option.text = item['社區名稱'];
+                select.appendChild(option);
+            });
+        }
+
+        function manualSelect(name) {
+            if(!name) return;
+            const item = allCommunities.find(i => i['社區名稱'] === name);
+            if(item) showResult(item);
+        }
+
+        function resetApp() {
+            document.getElementById('result-area').classList.add('hidden');
+            document.getElementById('manual-area').classList.add('hidden');
+            document.getElementById('status-area').classList.remove('hidden');
+            document.getElementById('main-buttons').classList.remove('hidden');
+            document.getElementById('gps-loading').classList.add('hidden');
+            document.getElementById('manual-select').value = "";
+        }
+
+        // Core Function: Show Data
         function showResult(data) {
             document.getElementById('status-area').classList.add('hidden');
             document.getElementById('manual-area').classList.add('hidden');
             document.getElementById('result-area').classList.remove('hidden');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
 
-            document.getElementById('res-name').innerText = data['社區名稱'];
-            document.getElementById('res-price').innerText = data['成交均價'];
-            document.getElementById('res-max').innerText = data['近期最高'];
-            document.getElementById('input-community').value = data['社區名稱'];
-            document.getElementById('modal-community-name').innerText = data['社區名稱'];
-
-            // 圖片顯示邏輯 (如果使用者還沒換圖床，這裡會試著跑，但不保證 Google Drive 能行)
+            // 1. 填寫基本資料
+            const commName = data['社區名稱'];
+            document.getElementById('res-name').innerText = commName;
+            document.getElementById('res-price').innerText = data['成交均價'] || "-";
+            document.getElementById('res-max').innerText = data['近期最高'] || "-";
+            
+            // 圖片處理
             let imgUrl = data['圖片連結'];
             if(imgUrl && imgUrl.includes('drive.google.com')) {
-                const idMatch = imgUrl.match(/\/d\/([-\w]{25,})/);
+                const idMatch = imgUrl.match(/\/d\/([-\w]{25,})/) || imgUrl.match(/id=([-\w]{25,})/);
                 if(idMatch) imgUrl = 'https://drive.google.com/uc?export=view&id=' + idMatch[1];
             }
-            if(imgUrl) document.getElementById('res-img').src = imgUrl;
+            document.getElementById('res-img').src = imgUrl || '';
+
+            // 2. 處理待售物件 (Feature 1)
+            const matchedObjects = allObjects.filter(obj => obj['社區名稱'] === commName);
+            renderObjects(matchedObjects, commName);
         }
 
+        function renderObjects(objects, commName) {
+            const listContainer = document.getElementById('object-list');
+            const section = document.getElementById('objects-section');
+            const noMsg = document.getElementById('no-objects-msg');
+            const countBadge = document.getElementById('obj-count');
+
+            listContainer.innerHTML = '';
+
+            if(objects.length > 0) {
+                section.classList.remove('hidden');
+                noMsg.classList.add('hidden');
+                countBadge.innerText = objects.length + " 筆";
+
+                objects.forEach(obj => {
+                    const price = obj['總價'] || '洽詢';
+                    const layout = obj['格局'] || '';
+                    const size = obj['建坪'] ? obj['建坪'] + '坪' : '';
+                    const floor = obj['樓層'] ? obj['樓層'] : '';
+                    const title = obj['案名'] || '優質好案';
+                    const photoLink = obj['照片連結']; // Google Drive Link
+
+                    // 製作卡片 HTML
+                    const card = document.createElement('div');
+                    card.className = "bg-white rounded-xl p-4 shadow-sm border border-slate-200 flex flex-col gap-3";
+                    
+                    let photoBtnHtml = '';
+                    if(photoLink) {
+                        photoBtnHtml = `
+                            <a href="${photoLink}" target="_blank" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-1 transition">
+                                <i class="fab fa-google-drive text-sm"></i> 雲端賞屋 (照片)
+                            </a>
+                        `;
+                    } else {
+                         photoBtnHtml = `
+                            <button disabled class="flex-1 bg-slate-50 text-slate-300 text-xs font-bold py-2.5 rounded-lg cursor-not-allowed">
+                                <i class="fas fa-image"></i> 照片準備中
+                            </button>
+                        `;
+                    }
+
+                    card.innerHTML = `
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h4 class="font-bold text-slate-800 text-base mb-1">${title}</h4>
+                                <p class="text-xs text-slate-500 bg-slate-50 inline-block px-2 py-1 rounded">
+                                    ${size} • ${layout} • ${floor}
+                                </p>
+                            </div>
+                            <div class="text-right">
+                                <p class="text-lg font-bold text-red-500 whitespace-nowrap">${price} <span class="text-xs text-slate-400 font-normal">萬</span></p>
+                            </div>
+                        </div>
+                        <div class="flex gap-2 mt-1">
+                            ${photoBtnHtml}
+                            <button onclick="openModal('預約看屋：${commName} - ${title}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold py-2.5 rounded-lg flex items-center justify-center gap-1 transition shadow-md shadow-blue-100">
+                                <i class="fas fa-calendar-check"></i> 預約看屋
+                            </button>
+                        </div>
+                    `;
+                    listContainer.appendChild(card);
+                });
+
+            } else {
+                section.classList.add('hidden');
+                noMsg.classList.remove('hidden');
+            }
+        }
+
+        // Calc logic
         function calculateMortgage() {
             const price = parseFloat(document.getElementById('calc-price').value);
-            const years = parseInt(document.getElementById('calc-years').value);
+            const years = 30; 
             const rate = 2.2 / 100; 
             if(!price) {
                 document.getElementById('calc-result').innerText = "請輸入總價";
@@ -318,29 +542,40 @@
             document.getElementById('calc-result').innerText = "約 " + Math.round(monthlyPay).toLocaleString() + " 元/月";
         }
 
-        function showManualList() {
-            document.getElementById('gps-loading').classList.add('hidden'); // 確保 GPS Loading 關閉
-            document.getElementById('status-area').classList.add('hidden');
-            document.getElementById('manual-area').classList.remove('hidden');
+        // Modal Logic
+        const modal = document.getElementById('form-modal');
+        const modalContent = document.getElementById('form-content');
+        const successMsg = document.getElementById('success-msg');
+
+        function openModal(subject) {
+            if(!subject) subject = "一般諮詢";
+            document.body.classList.add('modal-active');
+            document.getElementById('input-community').value = subject;
+            document.getElementById('modal-target-name').innerText = subject;
+            
+            modal.classList.add('active');
         }
 
-        function renderManualList() {
-            const select = document.getElementById('manual-select');
-            select.innerHTML = '<option value="">-- 請選擇社區 --</option>';
-            allCommunities.forEach((item, index) => {
-                if(!item['社區名稱']) return;
-                const option = document.createElement('option');
-                option.value = index; option.text = item['社區名稱'];
-                select.appendChild(option);
-            });
+        function closeModal() {
+            modal.classList.remove('active');
+            document.body.classList.remove('modal-active');
+            setTimeout(() => {
+                modalContent.classList.remove('hidden');
+                successMsg.classList.add('hidden');
+                submitted = false;
+            }, 300);
         }
 
-        function manualSelect(index) { if(index !== "") showResult(allCommunities[index]); }
-        function openModal() { document.body.classList.add('modal-active'); document.getElementById('form-modal').classList.remove('opacity-0', 'pointer-events-none'); }
-        function closeModal() { document.body.classList.remove('modal-active'); document.getElementById('form-modal').classList.add('opacity-0', 'pointer-events-none'); setTimeout(() => { document.getElementById('form-content').classList.remove('hidden'); document.getElementById('success-msg').classList.add('hidden'); submitted = false; }, 300); }
-        function showSuccess() { document.getElementById('form-content').classList.add('hidden'); document.getElementById('success-msg').classList.remove('hidden'); document.getElementById('google-form').reset(); }
+        function showSuccess() {
+            modalContent.classList.add('hidden');
+            successMsg.classList.remove('hidden');
+            document.getElementById('google-form').reset();
+        }
+
+        // Utility
         function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) { var R = 6371; var dLat = deg2rad(lat2-lat1); var dLon = deg2rad(lon2-lon1); var a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * Math.sin(dLon/2) * Math.sin(dLon/2); var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); return R * c; }
         function deg2rad(deg) { return deg * (Math.PI/180); }
+
     </script>
 </body>
 </html>
