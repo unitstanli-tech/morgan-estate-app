@@ -438,8 +438,8 @@
 
             const commName = data['社區名稱'];
             document.getElementById('res-name').innerText = commName;
-            document.getElementById('res-price').innerText = data['成交均價'] || "-";
-            document.getElementById('res-max').innerText = data['近期最高'] || "-";
+            document.getElementById('res-price').innerText = data['成交均價(萬)'] || "-";
+            document.getElementById('res-max').innerText = data['近期最高(萬)'] || "-";
             
             let imgUrl = data['圖片連結'];
             if(imgUrl && imgUrl.includes('drive.google.com')) {
